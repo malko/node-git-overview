@@ -1,0 +1,9 @@
+{
+	"elmaTesting":{
+		"label":"nodeElmaTesting"
+		,"path":"/home/malko/git/nodeelmatesting"
+		,"testing":"testing"
+		,"prod":"master"
+		,"upstream":"origin"
+	}
+}
