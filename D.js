@@ -173,11 +173,11 @@ function rethrow(e){ nextTick(function(){ throw e;}); }
 	defer.alwaysAsync=false; // setting this will change default behaviour. use it only if necessary as asynchronicity will force some delay between your promise resolutions and is not always what you want.
 
     defer.nodeStyle=function(subject,fn){
-      var d = defer();
       if( typeof subject === 'function' ){
         fn=subject; subject=void(0);
       }
       return function(){
+		var d = defer();
         var args = [].slice.apply(arguments);
         args.push(function(err,res){
            err ? d.reject(err) : d.resolve( arguments.length > 2 ? [].slice.call(arguments,1) : res);
