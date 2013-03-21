@@ -13,52 +13,95 @@ var exec = D.nodeStyle(child_process.exec);
 var readFile = D.nodeStyle(fs.readFile);
 
 //first read config file
-var repoConfig=JSON.parse(fs.readFileSync('./repositories-config.json'));
-var repoStatus={};
+var repoConfig=null;
+var repoStatuses={};
 
-function parseBranches(str){
-    var res=[];
-	str.replace(
-        /(?:Merge branch(?:es)?|,|and)\s+?'([^']+)'\s*(?=,|and |into testing)/g // @todo this should use repoConfig.testing value
-        ,function(m,branch){ res.push(branch);}
-    );
-    log('\nPARSEBRANCHES:\n',str,res,'\n');
-	return res;
+/**
+* return a promise of updated config read
+* @return promise
+*/
+function updateConfig(){
+    var d=D();
+    readFile('./repositories-config.json')
+        .then(function(data){ var tmp = JSON.parse(data); repoConfig = tmp; d.resolve(true);})
+        .rethrow(function(err){d.reject(err)})
+    ;
+    return d.promise;
 }
-function updateRepoStatus(){
+
+/**
+* parse branches part of the log and return a  list of branches as an array
+* @param string log part containing the branches
+* @param object repoConfig the configuration matching the repository
+* @return Array
+*/
+function parseBranches(str,repoConfig){
+    var res=[],exp=new RegExp("(?:Merge branch(?:es)?|,|and)\\s+?'([^']+)'\\s*(?=,|and |into "+repoConfig.testing+")",'g');
+    str.replace(exp, function(m,branch){ res.push(branch);});
+    log('\nPARSEBRANCHES:\n',str,exp,res,'\n');
+    return res;
+}
+/**
+* update a single repository status
+* @param string repoName
+* @param bool remoteUpdateFirst
+* @return promise of object repoStatus
+*/
+function updateRepoStatus(repoName,remoteUpdateFirst){
+    if( repoConfig === null ){ // enforce a config is already read
+        return updateConfig().then(function(){ return updateRepoStatus(repoName,remoteUpdateFirst);});
+    }
+    var conf = repoConfig[repoName];
+    if( undefined === conf ){
+        throw 'invalid repoName '+repoName;
+    }
+    var cmd ='git log --merges '+conf.upstream+'/'+conf.prod+'..'+conf.upstream+'/'+conf.testing+' --pretty="%cn#%ci#%s"'
+        ,cmdOpts = {cwd:conf.path}
+        ,statusPromise
+    ;
+    if( remoteUpdateFirst ){
+        statusPromise=exec('git remote update',cmdOpts).then(function(){ return exec(cmd,cmdOpts);});
+    }else{
+        statusPromise=exec(cmd,cmdOpts);
+    }
+    return statusPromise
+        .apply(function(stdout,stderr){
+            // initialize repoStatus[repoName]
+            repoStatuses[repoName] = {merges:[]};
+            log('\nSTART '+repoName+'\n',stdout,repoStatuses[repoName],'\n---------------------------\n');
+            stdout.replace(/^([^#]+)#([^#]+)#([^\n]+)/mg,function(m,by,date,branches){
+                //log('FEEDING '+repoName+'\n with:'+stdout+'\n',branches,'\n');
+                repoStatuses[repoName].merges.push({
+                    by:by
+                    ,at:date
+                    ,branches:parseBranches(branches,conf)
+                });
+            });
+            repoStatuses[repoName].merges.sort(function(a,b){ return a.at > b.at ? -1 : (a.at===b.at?0:1);});
+            //return repoStatuses
+        })
+        .rethrow(function(err){
+            repoStatuses[repoName] = {error:err.toString()};
+        })
+    ;
+}
+
+/**
+* update all repositories statuses
+* @param bool remoteUpdateFirst
+* @return promise of object repoStatuses
+*/
+function updateRepoStatuses(remoteUpdateFirst){
 	var promises=[];
 	for( var repo in repoConfig ){
-		repoStatus[repo] = {merges:[]};
-        (function(repo,conf){
-            promises.push(
-                //~ exec('git remote update',{cwd:conf.path})
-                exec('pwd',{cwd:conf.path})
-                    .then(function(){
-                        return exec('git log --merges '+conf.upstream+'/'+conf.prod+'..'+conf.upstream+'/'+conf.testing+' --pretty="%cn#%ci#%s"',{cwd:conf.path});
-                    })
-                    .apply(function(stdout,stderr){
-                        log('\nSTART '+repo+'\n',stdout,repoStatus,'\n---------------------------\n');
-                        stdout.replace(/^([^#]+)#([^#]+)#([^\n]+)/mg,function(m,by,date,branches){
-                            log('FEEDING '+repo+'\n with:'+stdout+'\n',branches,'\n');
-                            repoStatus[repo].merges.push({
-                                by:by
-                                ,at:date
-                                ,branches:parseBranches(branches)
-                            });
-                        });
-                        repoStatus[repo].merges.sort(function(a,b){ return a.at > b.at ? -1 : (a.at===b.at?0:1);});
-                    })
-                    .rethrow(function(err){
-                        repoStatus[repo].error = err.toString();
-                    })
-            );
-		})(repo,repoConfig[repo]);
+        promises.push(updateRepoStatus(repo,remoteUpdateFirst));
 	}
-	return D.all(promises);
+    return D.all(promises);
 }
 
-updateRepoStatus()
+updateConfig()
+    .then(updateRepoStatuses)
 	.then(function(){
-		console.log(JSON.stringify(repoStatus));
+		console.log(JSON.stringify(repoStatuses));
 	});
 return;
