@@ -1,0 +1,35 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+    <title>Testing status</title>
+    <script src="basic-compat.js"></script>
+    <script src="stpl.js"></script>
+    <script src="D.js"></script>
+    <script type="text/stpl" rel="projectStatus">
+        <li>{{label}}<ul>{{#branches}}<li>{{name}}</li>{{/branches}}</ul></li>
+    </script>
+    <script>
+        var get=function(url,options){
+            xhr.open('GET', url, true);
+            xhr.onreadystatechange = function(e) {
+              if (this.readyState == 4 && this.status == 200) {
+                var binStr = this.responseText;
+                for (var i = 0, len = binStr.length; i < len; ++i) {
+                  var c = binStr.charCodeAt(i);
+                  //String.fromCharCode(c & 0xff);
+                  var byte = c & 0xff;  // byte at offset i
+                }
+              }
+            }
+        };
+        $(function(){
+
+        })
+    </script>
+</head>
+<body>
+<h1>Testing status</h1>
+<ul id="projects">
+</ul>
+</body>
+</html>
