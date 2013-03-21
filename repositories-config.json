@@ -1,0 +1,16 @@
+{
+	"elmaTesting":{
+		"label":"nodeElmaTesting"
+		,"path":"/home/jgotti/git/nodeelmatesting"
+		,"testing":"testing"
+		,"prod":"master"
+		,"upstream":"origin"
+	}
+    ,"order-manager":{
+        "label":"Total order manager"
+		,"path":"/home/jgotti/htdocs/order-manager/jgotti"
+		,"testing":"testing"
+		,"prod":"master"
+		,"upstream":"origin"
+    }
+}
