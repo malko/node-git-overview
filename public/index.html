@@ -2,34 +2,69 @@
 <html>
 <head>
     <title>Testing status</title>
+    <style>
+        ul{ padding:0; }
+        li{
+            margin:0;
+            list-style: none;
+            padding:0.4em .8em;
+            cursor:pointer;
+        }
+        .error{ color:red; }
+        .error .detail{ width:0px;height:0;opacity:0; overflow: hidden; }
+        .error .detail.open{ width:450px; height:auto; -webkit-transition: width 250ms,opacity 750ms linear; opacity:1 }
+    </style>
     <script src="basic-compat.js"></script>
     <script src="stpl.js"></script>
     <script src="D.js"></script>
     <script type="text/stpl" rel="projectStatus">
-        <li>{{label}}<ul>{{#branches}}<li>{{name}}</li>{{/branches}}</ul></li>
+        {{#statuses}}{{error?}}{{>projectStatusError}}{{?error}}{{error!?}}{{>projectStatusOk}}{{?error}}{{/statuses}}
     </script>
-    <script>
-        var get=function(url,options){
-            xhr.open('GET', url, true);
-            xhr.onreadystatechange = function(e) {
-              if (this.readyState == 4 && this.status == 200) {
-                var binStr = this.responseText;
-                for (var i = 0, len = binStr.length; i < len; ++i) {
-                  var c = binStr.charCodeAt(i);
-                  //String.fromCharCode(c & 0xff);
-                  var byte = c & 0xff;  // byte at offset i
-                }
-              }
-            }
-        };
-        $(function(){
-
-        })
+    <script type="text/stpl" rel="projectStatusError">
+        <li class="error">{{label}}<div class="detail">Error: {{error}}</div></li>
+    </script>
+    <script type="text/stpl" rel="projectStatusOk">
+        <li>{{label}}<ul>{{#branches}}<li>{{name}}</li>{{/branches}}</ul></li>
     </script>
 </head>
 <body>
 <h1>Testing status</h1>
 <ul id="projects">
 </ul>
+<script type="text/javascript">
+    var api={
+        request:function(url){
+            var d = D(), xhr=new XMLHttpRequest();
+            xhr.onreadystatechange = function(){
+                if (xhr.readyState == 4) {
+                    var result, error = false
+                    if ((xhr.status >= 200 && xhr.status < 300) || xhr.status == 304 || (xhr.status == 0 && protocol == 'file:')) {
+                      d.resolve(JSON.parse(xhr.responseText));
+                    } else {
+                      d.reject(xhr.status || 'aborted')
+                    }
+                }
+            };
+            xhr.open('GET', url, true);
+            xhr.send();
+            return d.promise;
+        }
+        ,getStatuses:function(){ return this.request('getStatuses'); }
+        ,updateStatus:function(repoName){ return this.request('/getStatus/'+repoName); }
+    }
+    $.fn.stpl = function(tplName,data){ $(this).html(stpl(tplName,data)); }
+    $(function(){
+        api.getStatuses()
+            .success(function(statuses){
+                console.log(statuses)
+                $('#projects').stpl('projectStatus', {statuses:statuses})
+            })
+            .rethrow()
+        ;
+        $('#projects').on('click','li',function(e){
+            $('> .detail',this).toggleClass('open');
+        });
+    });
+</script>
 </body>
 </html>

@@ -5,12 +5,14 @@
 * @author Jonathan Gotti for agence-modedemploi.com
 * @since 2012-10
 * @changelog
+*           - 2013-03-21 - browser/node compatible
+*                        - new method nodeCapsule
 *           - 2013-01-25 - add rethrow method
 *                        - nextTick optimisation -> add support for process.nextTick + MessageChannel where available
 *           - 2012-12-28 - add apply method to promise
 *           - 2012-12-20 - add alwaysAsync parameters and property for default setting
 */
-(function(exports){
+(function(){
 	"use strict";
 
 var nextTick;
@@ -172,7 +174,7 @@ function rethrow(e){ nextTick(function(){ throw e;}); }
 
 	defer.alwaysAsync=false; // setting this will change default behaviour. use it only if necessary as asynchronicity will force some delay between your promise resolutions and is not always what you want.
 
-    defer.nodeStyle=function(subject,fn){
+    defer.nodeCapsule=function(subject,fn){
       if( typeof subject === 'function' ){
         fn=subject; subject=void(0);
       }
@@ -187,5 +189,5 @@ function rethrow(e){ nextTick(function(){ throw e;}); }
       }
     };
 
-	module.exports = defer;
-})( (typeof module==='object' && module.exports) ? module.exports : (this['D']={}));
+	(typeof window !== 'undefined') ? ( window.D = defer) : ( module.exports = defer);
+})();

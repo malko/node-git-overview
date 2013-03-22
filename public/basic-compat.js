@@ -345,11 +345,11 @@ if(! $){
 			});
 		}
 		,toggleClass:function(className,addOrRemove){
-			addOrRemove = (addOrRemove===Undef) ? hasClass : (addOrRemove?ok:nok);
+			addOrRemove = (addOrRemove===Undef) ? hasClass : (addOrRemove?nok:ok);
 			className = className.split(/\s+/);
 			return $.each(this,function(k,elmt){
 				$.each(className,function(){
-					$(elmt)[ addOrRemove(elmt,this)?'addClass':'removeClass' ](this);
+					$(elmt)[ addOrRemove(elmt,this)?'removeClass':'addClass' ](this);
 				});
 			});
 		}

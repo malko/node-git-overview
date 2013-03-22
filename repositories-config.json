@@ -1,16 +1,30 @@
 {
-	"elmaTesting":{
+	/*"elmaTesting":{
 		"label":"nodeElmaTesting"
 		,"path":"/home/jgotti/git/nodeelmatesting"
 		,"testing":"testing"
 		,"prod":"master"
 		,"upstream":"origin"
 	}
-    ,"order-manager":{
-        "label":"Total order manager"
+	,"order-manager":{
+		"label":"Total order manager"
 		,"path":"/home/jgotti/htdocs/order-manager/jgotti"
 		,"testing":"testing"
 		,"prod":"master"
 		,"upstream":"origin"
-    }
+	}
+	,*/"myproject":{
+		"label":"elmatesting"
+		,"path":"/home/malko/git/nodeelmatesting"
+		,"testing":"adding_a_front_end"
+		,"prod":"master"
+		,"upstream":"origin"
+	}
+	,"nodeRedmineTrelloAttempt":{
+		"label":"nodeRedmineTrelloAttempt"
+		,"path":"/home/malko/git/nodeRedmineTrelloAttempt"
+		,"testing":"testing"
+		,"prod":"master"
+		,"upstream":"origin"
+	}
 }
