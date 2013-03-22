@@ -103,13 +103,14 @@
 	function render(str,datas,context){
 		context || (context='');
 		return str
-			.replace(/\{\{\s*#([^\{\s]+?)\}\}([\s\S]*?)\{\{\/\1\}\}/g,function(m,param,str){ // each elements #param ending /param
+			.replace(/\{\{\s*#([^\{\s:]+?)(?::([^:\{\}]+))?\}\}([\s\S]*?)\{\{\/\1\}\}/g,function(m,param,concat,str){ // each elements #param ending /param
 				var res = [],data = getDataKey(datas,param,context),nContext = (context?context+'.':'')+param,i;
+                //~ console.log('each',param,concat,str,context,nContext,datas);
 				if(! data ){ return '';}
 				for( i in data ){
 					data.hasOwnProperty(i) && res.push(render(str,datas,nContext+'.'+i));
 				}
-				return res.join('');
+				return res.join(concat || '');
 			})
 			.replace(/\{\{\s*(([^\{\s\|]+?)(\|[^\{\s]+?)?)\s*(!)?\?\s*\}\}([\s\S]*?)\{\{\s*\?\s*(\1|\2)\s*\}\}/g,function(m,fullParam,param,filters,not,str){ // if => param?  if not => param!? both ending with ?param (filters may be ommitted for ending tag)
 				var data = getDataKey(datas,fullParam,context);
@@ -117,7 +118,7 @@
 				not && (paramTrue = !paramTrue);
 				return paramTrue ? render(str,datas,context) : '';
 			})
-			.replace(/\{\{\s*>\s*([a-z_][a-z_0-9]*)\s*\}\}/ig,function(m,subTpl){
+			.replace(/\{\{\s*>\s*([a-z_][a-z_0-9]*)\s*\}\}/ig,function(m,subTpl){ // subtemplate replacement
 				if(! tplStrings[subTpl]){
 					return '';
 				}
