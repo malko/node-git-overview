@@ -4,6 +4,7 @@
 * @author Jonathan Gotti for modedemploi
 * @licence MIT
 * @changelog
+*            - 2013-03-22 - add subtemplate filter
 *            - 2012-12-27 - add [in]equality filters + upperCase,lowerCase,ucFirst
 *                         - better context management
 *                         - add support for partial inclusion
@@ -55,11 +56,16 @@
 		}
 		return this;
 	}
-
+	function getTplStr(name){
+		if(! tplStrings[name] ){
+			throw 'unknown stpl template '+name;
+		}
+		return tplStrings[name];
+	}
 	function getDataKey(datas,key,context){
 		var i,l;
 		if( ~key.indexOf('|') ){
-			var filters=key.split('|'), data;
+			var filters=key.split('|'), data, tmp;
 			key = filters.shift();
 			data = getDataKey(datas,key,context);
 			for(i=0,l=filters.length;i<l;i++){
@@ -67,6 +73,8 @@
 					filters[i].replace(/^\s*(!?)=(.*)\s*$/,function(m,not,val){
 						data = not ? (data!=val?data:false) : (data==val?data:false);
 					});
+				}else if( filters[i].match(/^>[a-z0-9_-]+/i) ){/*jshint eqeqeq:false,loopfunc:true*/
+					data = render(getTplStr(filters[i].substr(1)),datas,context+'.'+key);
 				}else{
 					if( ! registeredFilters[filters[i]] ){
 						registerFilter(filters[i]);
@@ -102,6 +110,7 @@
 	}
 	function render(str,datas,context){
 		context || (context='');
+		datas || (datas={});
 		return str
 			.replace(/\{\{\s*#([^\{\s:]+?)(?::([^:\{\}]+))?\}\}([\s\S]*?)\{\{\/\1\}\}/g,function(m,param,concat,str){ // each elements #param ending /param
 				var res = [],data = getDataKey(datas,param,context),nContext = (context?context+'.':'')+param,i;
@@ -119,10 +128,7 @@
 				return paramTrue ? render(str,datas,context) : '';
 			})
 			.replace(/\{\{\s*>\s*([a-z_][a-z_0-9]*)\s*\}\}/ig,function(m,subTpl){ // subtemplate replacement
-				if(! tplStrings[subTpl]){
-					return '';
-				}
-				return render(tplStrings[subTpl],datas,context);
+				return render(getTplStr(subTpl),datas,context);
 			})
 			.replace(/\{\{\{\s*([^\{\s]*?)\s*\}\}\}/g,function(m,id){ // triple stash for escaped replacement
 				return escaped(getDataKey(datas,id,context));
@@ -133,11 +139,8 @@
 	function stpl(name,datas){
 		if( tplStrings[name] === undefined){
 			preload();
-			if( tplStrings[name] === undefined){
-				return false;
-			}
 		}
-		return render(tplStrings[name],datas);
+		return render(getTplStr(name),datas);
 	}
 	stpl.registerScriptTag = registerScriptTag;
 	stpl.registerString = registerString;

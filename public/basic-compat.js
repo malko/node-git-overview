@@ -37,6 +37,7 @@ if(! $){
 		}else	if(! isArray(context) ){
 			if( ((! context )|| (context.nodeType === 9)) && idExp.test(selector) ){
 				c = [(context||document).getElementById(selector.substr(1))];
+				c[0] === null && (c=[]);
 			}else if( classExp.test(selector)){
 				c = slice((context||document).getElementsByClassName(selector.substr(1)));
 			}else if( tagExp.test(selector) ){
