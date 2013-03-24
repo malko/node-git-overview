@@ -1,0 +1,276 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+		<title>Testing status</title>
+		<style>
+body{font-family:Ubuntu, Arial;font-size:.675em;display:block;position:relative;background: #efefef;}
+ul{ padding:0;display:block;}
+ul li{ margin:0 0 .5em 0;padding:0.4em .8em;font-size:1.2em;list-style: none;border:solid silver 1px;border-radius:2px;box-shadow:1px 1px 2px #888; background:#fff;display: block;}
+ul li .projectName{font-size:1.5em;font-weight: bold;}
+li{ position: relative;}
+ul li .actions{position:absolute; right:.5em; top:.75em;}
+ul li.error{color:red;}
+ul li.error .detail{display:none;}
+ul .open dl, ul .open.error .detail{display:block;}
+img{ vertical-align: middle;}
+dl{display:none;}
+dt{margin-top:.5em;background:#f5f5f5;border-radius:2px;padding:0.2em;border:solid silver 1px;}
+img.gravatar{box-shadow:1px 1px 2px #000;border-radius:2px;margin:0 .4em;vertical-align:middle;}
+dd{margin:0 1em;background:#f0f0f0;padding:.5em;border-bottom-right-radius:5px;border-bottom-left-radius:5px;box-shadow:0px 1px 4px #888;}
+body.loading{ background:#ffffee; }
+#activity{ background:#fee;color:#944;box-shadow: 0 0 3px #B99 ;position:fixed;top:-200px;right:2px;display:block;padding:.4em;font-size:1.2em; }
+.loading #activity{ top:2px;}
+.expander{
+		color:#555;
+		background: #eee;
+		cursor:pointer;
+}
+.title{ cursor: pointer;}
+.lastMergeDate{ padding: .25em .4em; border-radius:4px; font-size:.8em; font-weight: bold;}
+.lastMergeCommiter{ padding: .25em .4em; border-radius:4px; font-size:.8em; font-style: italic; }
+.lastMergeCommiter img{ height:2em; vertical-align: bottom;}
+.updateTime{
+	font-size:.8em;
+	display: inline-block;
+	padding:.1em .4em;
+	border-radius: 4px;
+	cursor: pointer;
+}
+i.icon{
+	display: inline-block;
+	border:solid silver 1px;
+	padding:.4em;
+	vertical-align: middle;
+	font-size:10px;
+}
+.fresh-15min{
+	color:#040;
+	background: #cfc;
+}
+.fresh-30min{
+	color:#008;
+	background: #eef;
+}
+.fresh-hour{
+	color:#530;
+	background: #ffb;
+}
+.fresh-hours{
+	color:#844;
+	background: #fee;
+}
+.fresh-days{
+	color:#800;
+	background: #fcc;
+}
+		</style>
+		<link type="text/css" rel="stylesheet" href="webfonts/fontawesome.css" />
+		<script src="basic-compat.js"></script>
+		<script src="stpl.js"></script>
+		<script src="D.js"></script>
+
+		<script type="text/stpl" rel="projectName">
+				<span class="title"><span class="projectName">{{label}}</span>
+				{{merges.length?}}
+					<span class="lastMergeCommiter">last merge {{merges.0|>commiter}}</span>
+					<span class="lastMergeDate" title="{{merges.0.at|time2ISO}}"><i class="icon-time"></i>{{merges.0.at|relativeTime}} ago</span>
+				{{?merges.length}}</span>
+				<div class="actions">
+						<span class="updateTime">updated <span class="relative">{{updateTime|relativeTime}}</span> ago <i class=" icon-refresh" title="Update status"></i></span>
+						<i class="expander icon icon-chevron-down" title="toggle details"></i>
+				</div>
+		</script>
+		<script type="text/stpl" rel="projectStatus">
+				{{#statuses}}
+						<li {{error?}}class="error" {{?error}}id="{{name}}">
+								{{error?}}{{>projectStatusError}}{{?error}}{{error!?}}{{>projectStatusOk}}{{?error}}
+						</li>
+				{{/statuses}}
+		</script>
+		<script type="text/stpl" rel="projectStatusError">
+				{{>projectName}}<div class="detail">Error: {{error}}</div>
+		</script>
+		<script type="text/stpl" rel="projectStatusOk">
+				{{>projectName}}<dl>{{#merges}}<dt><i class="icon-random"></i> merge {{>commiter}} at {{at|time2ISO}}</dt><dd class="branches">{{branches|listBranch}}</dd>{{/merges}}</dl>{{#merges.branches:test}}{{name}}{{/merges.branches}}
+		</script>
+		<script type="text/stpl" rel="commiter">by <img src="{{gravatar}}" alt="{{mail}}" class="gravatar"/>{{by}}</script>
+</head>
+<body>
+<div id="activity"> Loading... <i class="icon-spin icon-spinner"></i></div>
+<h1>Testing status</h1>
+<ul id="projects"></ul>
+<!--button id="refreshStatuses">refresh Statuses</button-->
+<!--button id="reloadConfig">Reload config</button-->
+<script type="text/javascript">
+	//-- date/time manipulations
+	function getTime(date){
+		if(! date){
+			return (new Date()).getTime() - timeDelta;
+		}
+		date = new Date() - timeDelta;
+		return date.toISOString().replace(/^([\d-]+)T([\d:]+).*$/,'$1 $2');
+	}
+	function getDate(ts){
+		return (new Date(ts));
+	}
+	function relativeTime(previous){
+		var current=getTime();
+		var msPerMinute = 60 * 1000;
+		var msPerHour = msPerMinute * 60;
+		var msPerDay = msPerHour * 24;
+		var msPerMonth = msPerDay * 30;
+		var msPerYear = msPerDay * 365;
+		var elapsed = current - previous;
+		if (elapsed < msPerMinute) {
+				return Math.round(elapsed/1000) + ' sec.';
+		} else if (elapsed < msPerHour) {
+				return Math.round(elapsed/msPerMinute) + ' min.';
+		} else if (elapsed < msPerDay ) {
+				return Math.round(elapsed/msPerHour ) + ' hours';
+		}else if (elapsed < msPerMonth) {
+				return '~' + Math.round(elapsed/msPerDay) + ' days';
+		} else if (elapsed < msPerYear) {
+				return '~' + Math.round(elapsed/msPerMonth) + ' months';
+		} else {
+				return '~' + Math.round(elapsed/msPerYear ) + ' years';
+		}
+	}
+	function time2ISO(timeStamp,d){
+		return getDate(timeStamp).toISOString().replace(/^([\d-]+)T([\d:]+).*$/,'$1 $2');
+	}
+		// server api
+	var api={
+			request:function(url,json){
+				var d = D()
+					,xhr=new XMLHttpRequest()
+				;
+				xhr.onreadystatechange = function(){
+					if (xhr.readyState == 4) {
+						var result, error = false
+						if ((xhr.status >= 200 && xhr.status < 300) || xhr.status == 304 || (xhr.status == 0 && protocol == 'file:')) {
+							d.resolve(json ? JSON.parse(xhr.responseText) : xhr.responseText);
+						} else {
+							d.reject(xhr.status || 'aborted')
+						}
+					}
+				};
+				startLoading();
+				xhr.open('GET', url, true);
+				xhr.send();
+				d.promise.then(stopLoading,stopLoading);
+				d.promise.error(function(err){ alert('Error: ' + err)});
+				return d.promise;
+			}
+			,updateConfig:function(){ return this.request('/updateConfig',false); }
+			,getStatuses:function(forceRefresh){ return this.request('/getStatuses'+(forceRefresh?'/reload':''),true); }
+			,updateStatus:function(repoName){ return this.request('/getStatus/'+repoName,true); }
+			,serverTime:function(){ return this.request('/serverTime'); }
+		}
+		,timeDelta=0
+	;
+	//-- template system bindings
+	$.fn.stpl = function(tplName,data){ $(this).html(stpl(tplName,data)); }
+	stpl.registerFilter('listBranch',function(branches){
+		var b=[];$.each(branches,function(k,v){ return b.push(v.name);});
+		return branches.length ? '<span class="branch">'+b.join('</span>, <span class="branch">')+'</span>' : '';
+	});
+	stpl.registerFilter('fuzzyDate',function(timeStamp){
+		var d = new Date();
+		d.setTime(timeStamp);
+		return d.toString();
+	});
+	//encapsulate status refresh to sort the results
+	function reload(){ window.location.relaod();}
+	function refreshStatuses(refresh){
+		return api.getStatuses(refresh)
+			.success(function(statuses){
+				repoStatuses={}, keys=[];
+				$.each(statuses,function(k,v){ keys.push([k,v.label]);});
+				keys.sort(function(a,b){ return a[1].toLowerCase() > b[1].toLowerCase() ? 1 : -1});
+				$.each(keys,function(k,v){
+					repoStatuses[v[0]] = statuses[v[0]];
+				})
+				refreshStatusesDisplay();
+			})
+			.rethrow()
+		;
+	}
+	// display methods
+	function startLoading(){ $('body').addClass('loading');};
+	function stopLoading(){ $('body').removeClass('loading');};
+	function refreshStatusesDisplay(){ $('#projects').html('').stpl('projectStatus', {statuses:repoStatuses}); setFreshNess(); }
+	function refreshStatusDisplay(repoName){
+		var status=repoStatuses[repoName],li=$('li#'+repoName);
+		li.toggleClass('error',!!status.error);
+		li.html(li.stpl('projectStatus' + (!!status.error ? 'Error':'Ok'),status));
+		setFreshNess(repoName);
+	}
+	function setFreshNess(repoName){
+		if(! repoName ){
+			$.each(repoStatuses,setFreshNess); return;
+		}
+		var li=$('li#'+repoName)
+			, elapsedTime = {
+				updateTime: (getTime() - repoStatuses[repoName].updateTime)/1000
+				,lastMergeDate: repoStatuses[repoName].merges ? (getTime() - repoStatuses[repoName].merges[0].at)/1000 : 86400
+			}
+		;
+		$.each(elapsedTime,function(k,v){
+			var e = li.find('.'+k), fresh;
+			if(! e.length ){ return; }
+			if( v < 900 ){ // less than 15 minutes is perfect
+				fresh = '15min';
+			}else if( v < 1800){
+				fresh = '30min';
+			}else if( v < 3600 ){
+				fresh = 'hour';
+			}else if( v < 86400 ){
+				fresh = 'hours';
+			}else{
+				fresh = 'days';
+			}
+			e.attr('className',e.attr('className').replace(/\s*fresh-\w+/,'') + ' fresh-'+fresh);
+		});
+		li.find('.updateTime .relative').html(relativeTime(repoStatuses[repoName].updateTime));
+	}
+		// get time delta to add for future time calculations
+		api.serverTime().success(function(timeStamp){ timeDelta= (new Date()).getTime()-timeStamp })
+		var repoStatuses = {}; // local cache of repoStatuses
+		$(function(){
+			 refreshStatuses();
+				$('#projects')
+						.on('click','li, span.title, span.title *, .actions .expander',function(e){
+								var li = $(this),opened;
+								li.is('li') || (li=li.closest('li'));
+								li.toggleClass('open');
+								opened = li.hasClass('open');
+								$('.expander',li)
+									.toggleClass('icon-chevron-up',opened)
+									.toggleClass('icon-chevron-down',!opened)
+								;
+						})
+						.on('click','.actions .updateTime',function(){
+								var repoName = $(this).closest('li').attr('id');
+								api.updateStatus(repoName)
+									.success(function(status){
+										repoStatuses[repoName] = status;
+										refreshStatusDisplay(repoName);
+									})
+									.rethrow()
+								;
+						});
+				;
+				$('#reloadConfig').on('click',function(){
+						api.updateConfig()
+								.then(reload)
+								.rethrow();
+				});
+				$('#refreshStatuses').on('click',function(){
+						refreshStatuses(true).success(reload);
+				});
+				// refresh only freshness time would be better
+				//setInterval(function(){ setFreshNess()},500);
+		});
+</script>
+</body>
+</html>

@@ -5,12 +5,15 @@
 * @author Jonathan Gotti for agence-modedemploi.com
 * @since 2012-10
 * @changelog
+*           - 2013-03-21 - browser/node compatible
+*                        - new method nodeCapsule
+*                        - simpler promixify with full api support
 *           - 2013-01-25 - add rethrow method
 *                        - nextTick optimisation -> add support for process.nextTick + MessageChannel where available
 *           - 2012-12-28 - add apply method to promise
 *           - 2012-12-20 - add alwaysAsync parameters and property for default setting
 */
-(function(exports){
+(function(){
 	"use strict";
 
 var nextTick;
@@ -56,7 +59,7 @@ function rethrow(e){ nextTick(function(){ throw e;}); }
 				,success:function(fulfilled){ return this.then(fulfilled,null); }
 				,error:function(failed){ return this.then(null,failed); }
 				,apply:function(fulfilled,failed){ return this.then(function(a){ return (typeof fulfilled==='function')?fulfilled.apply(null,a):fulfilled;},failed || null); }
-				,rethrow:function(failed){ return this.then(null,failed || rethrow); }
+				,rethrow:function(failed){ return this.then(null,failed ? function(err){ failed(err); throw err;} : rethrow); }
 				,isPending:function(){
 					return status === 0 ? true:false;
 				}
@@ -122,16 +125,12 @@ function rethrow(e){ nextTick(function(){ throw e;}); }
 		setTimeout(function(){ try{ d.resolve(fn.apply(null)); }catch(e){ d.reject(e); }  },delay||0);
 		return d.promise;
 	};
-	//-- if given value is not a promise return a pseudo promise wich will resolve to given value and support then
+	//-- if given value is not a promise return a fullfilled promise resolved to given value 
 	defer.promisify = function(promise){
 		if(promise && promise.then){ return promise;}
-		return {
-			then:function(cb){
-				var d = defer();
-				nextTick(function(){ d.resolve(cb(promise)); });
-				return d.promise;
-			}
-		};
+		var d = defer();
+		d.resolve(promise);
+		return d.promise;
 	};
 	defer.nextTick = nextTick;
 	//-- return a promise for all given promises / values
@@ -172,20 +171,20 @@ function rethrow(e){ nextTick(function(){ throw e;}); }
 
 	defer.alwaysAsync=false; // setting this will change default behaviour. use it only if necessary as asynchronicity will force some delay between your promise resolutions and is not always what you want.
 
-    defer.nodeStyle=function(subject,fn){
-      if( typeof subject === 'function' ){
-        fn=subject; subject=void(0);
-      }
-      return function(){
-		var d = defer();
-        var args = [].slice.apply(arguments);
-        args.push(function(err,res){
-           err ? d.reject(err) : d.resolve( arguments.length > 2 ? [].slice.call(arguments,1) : res);
-        });
-        fn.apply(subject,args);
-        return d.promise;
-      }
-    };
+	defer.nodeCapsule=function(subject,fn){
+		if( typeof subject === 'function' ){
+			fn=subject; subject=void(0);
+		}
+		return function(){
+			var d = defer();
+			var args = [].slice.apply(arguments);
+			args.push(function(err,res){
+				 err ? d.reject(err) : d.resolve( arguments.length > 2 ? [].slice.call(arguments,1) : res);
+			});
+			fn.apply(subject,args);
+			return d.promise;
+		}
+	};
 
-	module.exports = defer;
-})( (typeof module==='object' && module.exports) ? module.exports : (this['D']={}));
+	(typeof window !== 'undefined') ? ( window.D = defer) : ( module.exports = defer);
+})();
