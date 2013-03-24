@@ -3,8 +3,9 @@
 <head>
 		<title>Testing status</title>
 		<style>
-body{font-family:Ubuntu, Arial;font-size:.675em;display:block;position:relative;background: #efefef;}
-ul{ padding:0;display:block;}
+body{font-family:Ubuntu, Arial;font-size:.675em;display:block;position:relative;background: #efefef;text-align: center;}
+h1{ text-align: left;}
+ul{ padding:0;display:block;text-align: left;}
 ul li{ margin:0 0 .5em 0;padding:0.4em .8em;font-size:1.2em;list-style: none;border:solid silver 1px;border-radius:2px;box-shadow:1px 1px 2px #888; background:#fff;display: block;}
 ul li .projectName{font-size:1.5em;font-weight: bold;}
 li{ position: relative;}
@@ -63,6 +64,37 @@ i.icon{
 	color:#800;
 	background: #fcc;
 }
+#dialogbox{
+	position:fixed;
+	background: #fff;
+	top:-500px;
+	left:50%;
+	width:400px;
+	margin:auto -200px;
+	border:solid #555 1px;
+	box-shadow:2px 2px 15px #333;
+	border-radius:6px;
+	padding:1em;
+	opacity:0;
+	-webkit-transition: opacity 400ms linear ,top 500ms ease;
+	text-align: left;
+}
+#dialogbox.opened{ top:50px; opacity: 1;}
+#dialogbox > i{
+	position:absolute;
+	top:-15px;
+	right:-15px;
+	display: block;
+	width:20px;
+	height: 20px;
+	background: #fff;
+	border-radius: 10px;
+	font-size:14px;
+	box-shadow:1px 1px 2px #333;
+	text-align: center;
+	line-height:20px;
+}
+#dialogbox > div{ margin:0; overflow:auto; max-height: 350px; }
 		</style>
 		<link type="text/css" rel="stylesheet" href="webfonts/fontawesome.css" />
 		<script src="basic-compat.js"></script>
@@ -99,6 +131,7 @@ i.icon{
 <div id="activity"> Loading... <i class="icon-spin icon-spinner"></i></div>
 <h1>Testing status</h1>
 <ul id="projects"></ul>
+<div id="dialogbox"><i class="icon-remove"></i><div></div></div>
 <!--button id="refreshStatuses">refresh Statuses</button-->
 <!--button id="reloadConfig">Reload config</button-->
 <script type="text/javascript">
@@ -163,6 +196,7 @@ i.icon{
 			}
 			,updateConfig:function(){ return this.request('/updateConfig',false); }
 			,getStatuses:function(forceRefresh){ return this.request('/getStatuses'+(forceRefresh?'/reload':''),true); }
+			,getBranchInfos:function(repo,branch,forceUpdate){ return this.request('/branchInfos/'+repo+'/'+branch+'/'+(forceUpdate?'reload':'')); }
 			,updateStatus:function(repoName){ return this.request('/getStatus/'+repoName,true); }
 			,serverTime:function(){ return this.request('/serverTime'); }
 		}
@@ -198,6 +232,8 @@ i.icon{
 	// display methods
 	function startLoading(){ $('body').addClass('loading');};
 	function stopLoading(){ $('body').removeClass('loading');};
+	function openDialog(content){ dialogbox.find('>div').html(content); dialogbox.addClass('opened'); }
+	function closeDialog(content){ dialogbox.removeClass('opened'); dialogbox.find('>div').html(''); }
 	function refreshStatusesDisplay(){ $('#projects').html('').stpl('projectStatus', {statuses:repoStatuses}); setFreshNess(); }
 	function refreshStatusDisplay(repoName){
 		var status=repoStatuses[repoName],li=$('li#'+repoName);
@@ -212,7 +248,7 @@ i.icon{
 		var li=$('li#'+repoName)
 			, elapsedTime = {
 				updateTime: (getTime() - repoStatuses[repoName].updateTime)/1000
-				,lastMergeDate: repoStatuses[repoName].merges ? (getTime() - repoStatuses[repoName].merges[0].at)/1000 : 86400
+				,lastMergeDate: (repoStatuses[repoName].merges && repoStatuses[repoName].merges.length) ? (getTime() - repoStatuses[repoName].merges[0].at)/1000 : 86400
 			}
 		;
 		$.each(elapsedTime,function(k,v){
@@ -235,7 +271,7 @@ i.icon{
 	}
 		// get time delta to add for future time calculations
 		api.serverTime().success(function(timeStamp){ timeDelta= (new Date()).getTime()-timeStamp })
-		var repoStatuses = {}; // local cache of repoStatuses
+		var repoStatuses = {},dialogbox=$('#dialogbox'); // local cache of repoStatuses
 		$(function(){
 			 refreshStatuses();
 				$('#projects')
@@ -258,7 +294,19 @@ i.icon{
 									})
 									.rethrow()
 								;
-						});
+						})
+						.on('click','.branch',function(){
+								var b = $(this)
+									,li=b.closest('li')
+									,bname=b.html()
+									,repo=li.prop('id')
+								;
+								api.getBranchInfos(repo,bname)
+									.success(function(infos){
+										openDialog('<h2>'+repo+':'+bname+'</h2><ul><li>'+infos.replace(/(^\s+|\s+$)/g,'').replace(/^\+ (\S+) (.*)$/gm,'$2<br /><small>$1</small>').replace(/\n/g,'</li><li>')+'</li></ul>');
+									})
+									.rethrow();
+						})
 				;
 				$('#reloadConfig').on('click',function(){
 						api.updateConfig()
@@ -268,8 +316,9 @@ i.icon{
 				$('#refreshStatuses').on('click',function(){
 						refreshStatuses(true).success(reload);
 				});
-				// refresh only freshness time would be better
-				//setInterval(function(){ setFreshNess()},500);
+				dialogbox.find('i').on('click',closeDialog);
+				// refresh only freshness time
+				setInterval(function(){ setFreshNess()},30000);
 		});
 </script>
 </body>

@@ -305,7 +305,7 @@ if(! $){
 		}
 		,removeAttr:function(attrName){ return this.attr(attrName,'');}
 		,prop:function(propName,value){
-			return value!==Undef?(this[0] && this[0][propName]) : $.each(this,function(k,v){ v[propName] = value;});
+			return value===Undef?(this[0] && this[0][propName]) : $.each(this,function(k,v){ v[propName] = value;});
 		}
 		,html:function(html){
 			return html===Undef?this[0][isDomElmt(this[0])?'innerHTML':'value'] : $.each(this,function(k,elmt){ elmt[isDomElmt(elmt)? 'innerHTML' : 'value']=html;});

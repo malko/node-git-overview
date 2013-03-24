@@ -29,6 +29,58 @@ var exec = D.nodeCapsule(child_process.exec)
 	}
 ;
 
+/**
+* exec a command on the given repo
+* @param string repoName
+* @param string cmd will replace placeHolders %prod %testing %upstream by their corresponding config value
+* @param bool remoteUpdateFirst
+* @return a promise
+*/
+function repoExec(repoName,cmd,remoteUpdateFirst){
+	if( repoConfig === null ){ // enforce a config is already read
+		return updateConfig().then(function(){ return repoExec(repoName,cmd,remoteUpdateFirst);});
+	}
+	var conf = repoConfig[repoName];
+	if( undefined === conf ){
+		return reject('invalid repoName ' + repoName);
+	}
+	var cmdOpts = {cwd:conf.path}
+		,statusPromise
+	;
+	cmd = cmd.replace(/%(prod|testing|upstream)/g,function(m,key){
+		return conf[key];
+	});
+	if( remoteUpdateFirst ){
+		statusPromise=exec('git remote update',cmdOpts).then(function(){ return exec(cmd,cmdOpts);});
+	}else{
+		statusPromise=exec(cmd,cmdOpts);
+	}
+	if( DEBUG_MODE ){
+		return statusPromise
+			.apply(
+				function(stdout,stderr){
+					console.log('[repoExec:'+repoName+']',cmd,stdout,stderr);
+					return [stdout,stderr];
+				}
+				,function(Err){
+					console.log('[repoExec:'+repoName+' ERROR]',Err,cmd);
+					throw Err;
+				}
+			)
+		;
+	}
+	return statusPromise;
+}
+
+/**
+* shorthand to return a rejected promise with given error
+*/
+function reject(err){
+	var d = D();
+	d.reject(err);
+	return d.promise;
+}
+
 readCachedFile.cached = {};
 
 //first read config file
@@ -70,31 +122,36 @@ function parseBranches(str,repoConfig){
 	return res;
 }
 /**
+* check for a branch if all commits are properly applieds or not
+* @param string repoName
+* @param string branchName
+* @param bool remoteUpdateFirst
+* @return promise of result
+*/
+function checkBranchStatus(repoName,branch,remoteUpdateFirst){
+	var cmd = 'git branch -r | grep %upstream/'+branch+' && git cherry -v %upstream/%testing %upstream/'+branch;
+	return repoExec(repoName,cmd,remoteUpdateFirst)
+		.apply(function(stdout,stderr){
+			if( stdout.match(/^\+/m) ){
+				return stdout.replace(/^[^\+].*\n/gm,'');
+			}
+			return "nothing to report";
+		})
+		.error(function(Err){
+			console.log('Error ',cmd,cmdOpts, Err)
+		})
+	;
+}
+/**
 * update a single repository status
 * @param string repoName
 * @param bool remoteUpdateFirst
 * @return promise of object repoStatus
 */
 function updateRepoStatus(repoName,remoteUpdateFirst){
-	if( repoConfig === null ){ // enforce a config is already read
-		return updateConfig().then(function(){ return updateRepoStatus(repoName,remoteUpdateFirst);});
-	}
-	var conf = repoConfig[repoName];
-	if( undefined === conf ){
-		var d=D();
-		d.reject('invalid repoName ' + repoName);
-		return d.promise;
-	}
-	var cmd ='git log --merges '+conf.upstream+'/'+conf.prod+'..'+conf.upstream+'/'+conf.testing+' --pretty="%cn#%ce#%ct#%s" | grep "into '+conf.testing+'"'
-		,cmdOpts = {cwd:conf.path}
-		,statusPromise
-	;
-	if( remoteUpdateFirst ){
-		statusPromise=exec('git remote update',cmdOpts).then(function(){ return exec(cmd,cmdOpts);});
-	}else{
-		statusPromise=exec(cmd,cmdOpts);
-	}
-	return statusPromise
+	var cmd ='git log --merges %upstream/%prod..%upstream/%testing --pretty="%cn#%ce#%ct#%s"' // | grep "into %testing"';
+	//- console.log(cmd);
+	return repoExec(repoName,cmd,remoteUpdateFirst)
 		.apply(function(stdout,stderr){
 			// initialize repoStatus[repoName]
 			repoStatuses[repoName] = {name:repoName,label:repoConfig[repoName].label,updateTime:(new Date()).getTime(),merges:[]};
@@ -106,7 +163,7 @@ function updateRepoStatus(repoName,remoteUpdateFirst){
 					,mail:mail
 					,gravatar:gravatar.url(mail,{s:32},false)
 					,at:date*1000
-					,branches:parseBranches(branches,conf)
+					,branches:parseBranches(branches,repoConfig[repoName])
 				});
 			});
 			repoStatuses[repoName].merges.sort(function(a,b){ return a.at > b.at ? -1 : (a.at===b.at?0:1);});
@@ -139,7 +196,7 @@ updateConfig()
 		log('create server',repoConfig)
 		http.createServer(function (req, res) {
 			//res.writeHead(200, {'Content-Type': 'application/json'});
-			log('requesting '+req.url,req.headers);
+			//log('requesting '+req.url,req.headers);
 			var query = req.url.substr(1).split('/')
 				,action = query[0]
 				,params = query.slice(1)
@@ -153,7 +210,7 @@ updateConfig()
 					content = readCachedFile('./D.js');
 					break;
 				case 'getStatuses':
-					console.log('GETSTATUSES',params,(params[0] === 'reload'));
+					//console.log('GETSTATUSES',params,(params[0] === 'reload'));
 					content = (params[0] === 'reload') ? updateRepoStatuses(true).success(function(){ return repoStatuses;}) : repoStatuses;
 					break;
 				case 'updateConfig':
@@ -161,7 +218,7 @@ updateConfig()
 					content = 'done';
 					break;
 				case 'getStatus':
-					console.log(params)
+					//console.log(params)
 					content = updateRepoStatus(params[0],true);//.success(function(){return repoStatuses[params[0]];});
 					content.then('status return;',log,log)
 					break;
@@ -172,6 +229,8 @@ updateConfig()
 					action = 'webfonts/'+params.join('/').replace(/\?.*$/,'');
 					content = readFile('public/'+action);
 					break;
+				case 'branchInfos':
+					content = checkBranchStatus(params[0],params[1],false);
 				default:
 					if( action.match(/^(|index(?:\.html)?|(?:basic-compat|stpl)\.js)$/) ){
 						( action ==='' || req.url==='index' ) &&  (action = '/index.html');
@@ -189,11 +248,11 @@ updateConfig()
 			content
 				.then(
 					function(body){
+						console.log('response',action,params,typeof body,body instanceof Buffer);
 						if( ! body ){
 							throw new Error(404);
 							return;
 						}
-						console.log('response',action,params,body,typeof body,body instanceof Buffer);
 						if( typeof body === 'string' || (body instanceof Buffer) ){
 							action.replace(/\.(js|css|html|htm)$/,function(m,ext){
 								var ctype='text/plain';
