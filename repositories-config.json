@@ -1,51 +1,79 @@
 {
-	"elmaTesting":{
-		"label":"nodeElmaTesting"
-		,"path":"/home/jgotti/git/nodeelmatesting"
+	"avis":{
+		"label":"Avis"
+		,"path":"/home/jgotti/DEV_home/elmaTestingStatusBares/wl-avis"
 		,"testing":"testing"
 		,"prod":"master"
 		,"upstream":"origin"
 	}
-	,"ordermanager":{
-		"label":"Total order manager"
-		,"path":"/home/jgotti/htdocs/order-manager/jgotti"
+	,"total":{
+		"label":"Total"
+		,"path":"/home/jgotti/DEV_home/elmaTestingStatusBares/2wls-total"
 		,"testing":"testing"
 		,"prod":"master"
 		,"upstream":"origin"
 	}
-	,"maximilesFW":{
-		"label":"Maximiles Framework"
-		,"path":"/home/jgotti/DEV_home/git/maximiles"
+	,"ccv3":{
+		"label":"CCCV3"
+		,"path":"/home/jgotti/DEV_home/elmaTestingStatusBares/cccv3"
+		,"testing":"testing"
+		,"prod":"master"
+		,"upstream":"origin"
+	}
+	,"easyvoyage":{
+		"label":"EasyVoyage"
+		,"path":"/home/jgotti/DEV_home/elmaTestingStatusBares/easyvoyage"
+		,"testing":"testing"
+		,"prod":"master"
+		,"upstream":"origin"
+	}
+	,"m3":{
+		"label":"M3-V3"
+		,"path":"/home/jgotti/DEV_home/elmaTestingStatusBares/m3"
+		,"testing":"testing"
+		,"prod":"master"
+		,"upstream":"origin"
+	}
+	,"maximilesfw":{
+		"label":"MaximilesFramework"
+		,"path":"/home/jgotti/DEV_home/elmaTestingStatusBares/maximiles"
 		,"testing":"testing"
 		,"prod":"master"
 		,"upstream":"origin"
 	}
 	,"maximiles":{
 		"label":"Maximiles"
-		,"path":"/home/jgotti/htdocs/maximiles/jgotti"
+		,"path":"/home/jgotti/DEV_home/elmaTestingStatusBares/maximiles-web"
 		,"testing":"testing"
 		,"prod":"master"
 		,"upstream":"origin"
 	}
-	,"m3":{
-		"label":"M3"
-		,"path":"/home/jgotti/htdocs/m3-v3/workspaces/jgotti/site"
+	,"multic":{
+		"label":"Multic"
+		,"path":"/home/jgotti/DEV_home/elmaTestingStatusBares/multic"
 		,"testing":"testing"
 		,"prod":"master"
 		,"upstream":"origin"
 	}
-	/*,"myproject":{
-		"label":"elmatesting"
-		,"path":"/home/malko/git/nodeelmatesting"
-		,"testing":"adding_a_front_end"
-		,"prod":"master"
-		,"upstream":"origin"
-	}
-	,"nodeRedmineTrelloAttempt":{
-		"label":"nodeRedmineTrelloAttempt"
-		,"path":"/home/malko/git/nodeRedmineTrelloAttempt"
+	,"ordermanager":{
+		"label":"Total Order Manager"
+		,"path":"/home/jgotti/DEV_home/elmaTestingStatusBares/order-manager"
 		,"testing":"testing"
 		,"prod":"master"
 		,"upstream":"origin"
-	}*/
+	}
+	,"cinepop":{
+		"label":"Cinepop"
+		,"path":"/home/jgotti/DEV_home/elmaTestingStatusBares/wl-cinepop"
+		,"testing":"testing"
+		,"prod":"master"
+		,"upstream":"origin"
+	}
+	,"hotelbb":{
+		"label":"Hotel B&amp;b"
+		,"path":"/home/jgotti/DEV_home/elmaTestingStatusBares/wl-hotelbb"
+		,"testing":"testing"
+		,"prod":"master"
+		,"upstream":"origin"
+	}
 }
