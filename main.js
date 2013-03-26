@@ -161,7 +161,7 @@ function updateRepoStatus(repoName,remoteUpdateFirst){
 				repoStatuses[repoName].merges.push({
 					by:by
 					,mail:mail
-					,gravatar:gravatar.url(mail,{s:32},false)
+					,gravatar:gravatar.url(mail,{s:32,d:'wavatar'},false)
 					,at:date*1000
 					,branches:parseBranches(branches,repoConfig[repoName])
 				});
@@ -291,7 +291,7 @@ updateConfig()
 					//~ log(action + ' response END 500');
 				})
 			;
-		}).listen( process.argv[2] || 8000, '127.0.0.1');
+		}).listen( process.argv[2] || 8000, '10.0.1.59');
 		//~ console.log('running',process.argv[2] || 8000);
 	})
 	.rethrow()
