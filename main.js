@@ -32,7 +32,7 @@ var exec = D.nodeCapsule(child_process.exec)
 /**
 * exec a command on the given repo
 * @param string repoName
-* @param string cmd will replace placeHolders %prod %testing %upstream by their corresponding config value
+* @param string cmd will replace placeHolders %prod %feature %upstream by their corresponding config value
 * @param bool remoteUpdateFirst
 * @return a promise
 */
@@ -47,7 +47,7 @@ function repoExec(repoName,cmd,remoteUpdateFirst){
 	var cmdOpts = {cwd:conf.path}
 		,statusPromise
 	;
-	cmd = cmd.replace(/%(prod|testing|upstream)/g,function(m,key){
+	cmd = cmd.replace(/%(prod|feature|upstream)/g,function(m,key){
 		return conf[key];
 	});
 	if( remoteUpdateFirst ){
@@ -59,7 +59,7 @@ function repoExec(repoName,cmd,remoteUpdateFirst){
 		return statusPromise
 			.apply(
 				function(stdout,stderr){
-					console.log('[repoExec:'+repoName+']',cmd,stdout,stderr);
+					console.log('[repoExec:'+repoName+']',cmd,'\n'+stdout,stderr);
 					return [stdout,stderr];
 				}
 				,function(Err){
@@ -110,9 +110,9 @@ function updateConfig(){
 */
 function parseBranches(str,repoConfig){
 	var res=[]
-		,exp=new RegExp("(?:Merge(?: remotes?)? branch(?:es)?|,|and)\\s+?'([^']+)'\\s*(?=,|and |into "+repoConfig.testing+")",'g')
+		,exp=new RegExp("(?:Merge(?: remotes?)? branch(?:es)?|,|and)\\s+?'([^']+)'\\s*(?=,|and |into "+repoConfig.feature+")",'g')
 		,originExp=new RegExp("^"+repoConfig.upstream+"/")
-		,excludeExp=new RegExp("^.*branch '"+repoConfig.testing+"' of.*$",'mg')
+		,excludeExp=new RegExp("^.*branch '"+repoConfig.feature+"' of.*$",'mg')
 	;
 	str
 		.replace(excludeExp,function(m){ res.push({name:'<b style="color:red">'+m+'</b>'});})
@@ -125,20 +125,21 @@ function parseBranches(str,repoConfig){
 * check for a branch if all commits are properly applieds or not
 * @param string repoName
 * @param string branchName
+* @param string againstBranch (may be %feature or %prod)
 * @param bool remoteUpdateFirst
 * @return promise of result
 */
-function checkBranchStatus(repoName,branch,remoteUpdateFirst){
-	var cmd = 'git branch -r | grep %upstream/'+branch+' && git cherry -v %upstream/%testing %upstream/'+branch;
+function checkBranchStatus(repoName,branch,againstBranch,remoteUpdateFirst){
+	var cmd = 'git branch -r | grep "%upstream/\\('+branch+'\\|'+againstBranch+'\\)" > /dev/null && git cherry --abbrev -v %upstream/'+againstBranch+' %upstream/'+branch;
 	return repoExec(repoName,cmd,remoteUpdateFirst)
 		.apply(function(stdout,stderr){
 			if( stdout.match(/^\+/m) ){
-				return stdout.replace(/^[^\+].*\n/gm,'');
+				return stdout.replace(/^[^\+].*\n/gm,'').replace(/^\s+|\s+$/g,'');
 			}
-			return "nothing to report";
+			return '';
 		})
 		.error(function(Err){
-			console.log('Error ',cmd,cmdOpts, Err)
+			console.log('Error ',cmd,cmdOpts, Err);
 		})
 	;
 }
@@ -149,12 +150,12 @@ function checkBranchStatus(repoName,branch,remoteUpdateFirst){
 * @return promise of object repoStatus
 */
 function updateRepoStatus(repoName,remoteUpdateFirst){
-	var cmd ='git log --merges %upstream/%prod..%upstream/%testing --pretty="%cn#%ce#%ct#%s"' // | grep "into %testing"';
+	var cmd ='git log --merges %upstream/%prod..%upstream/%feature --pretty="%cn#%ce#%ct#%s"' // | grep "into %feature"';
 	//- console.log(cmd);
 	return repoExec(repoName,cmd,remoteUpdateFirst)
 		.apply(function(stdout,stderr){
 			// initialize repoStatus[repoName]
-			repoStatuses[repoName] = {name:repoName,label:repoConfig[repoName].label,updateTime:(new Date()).getTime(),merges:[]};
+			repoStatuses[repoName] = {name:repoName,label:repoConfig[repoName].label,updateTime:(new Date()).getTime(),merges:[],branches:[]};
 			//~ log('\nSTART '+repoName+'\n',stdout,repoStatuses[repoName],'\n---------------------------\n');
 			stdout.replace(/^([^#]+)#([^#]+)#([^#]+)#([^\n]+)/mg,function(m,by,mail,date,branches){
 				//log('FEEDING '+repoName+'\n with:'+stdout+'\n',branches,'\n');
@@ -170,6 +171,9 @@ function updateRepoStatus(repoName,remoteUpdateFirst){
 		})
 		.error(function(err){
 			repoStatuses[repoName] = {name:repoName,label:repoConfig[repoName].label,updateTime:(new Date()).getTime(),error:err.toString()};
+		})
+		.success(function(){
+			getBranches(repoName,false);
 		})
 		.then(function(){ return repoStatuses[repoName];})
 	;
@@ -189,9 +193,53 @@ log('updating')
 	return D.all(promises);
 }
 
+/**
+* return list of branch for given project
+* @param repoName
+*/
+function getBranches(repoName,remoteUpdateFirst){
+	if(! repoConfig[repoName]){
+		return D.rejected('Invalid repoName');
+	}
+	var rejectBranchExp = new RegExp(repoConfig[repoName].prod+'|'+repoConfig[repoName].feature+'|HEAD\s+->');
+	return repoExec(repoName,'git branch -r',remoteUpdateFirst)
+		.apply(function(stdout,stderr){
+			repoStatuses[repoName].branches = [];
+			if( stderr ){
+				return D.rejected(stderr);
+			}
+			var promises = [];
+			stdout.replace(new RegExp('^\\s*'+repoConfig[repoName].upstream+'/(.*)$','mg'),function(m,branch){
+				if( branch.match(rejectBranchExp) ){
+					return;
+				}
+				var branchDef = {
+					name:branch
+					,featureStatus:[]
+					,prodStatus:[]
+				};
+				promises.push(
+					D.all( // get unintegrated commits
+						checkBranchStatus(repoName,branch,'%feature')
+							.success(function(commits){commits && (branchDef.featureStatus = commits.split('\n'));})
+						,checkBranchStatus(repoName,branch,'%prod')
+							.success(function(commits){commits && (branchDef.prodStatus = commits.split('\n'));})
+					)
+					.success(function(){ // append branchDef status to repoStatuses when filled
+						repoStatuses[repoName].branches.push(branchDef);
+					})
+				);
+			});
+			return D.all(promises);
+		})
+		.success(function(){
+			return repoStatuses[repoName].branches;
+		})
+	;
+}
 // starting the server
 updateConfig()
-	.then(function(){ updateRepoStatuses(true) })
+	.then(function(){ updateRepoStatuses(false) })
 	.then(function(){
 		log('create server',repoConfig)
 		http.createServer(function (req, res) {
@@ -217,6 +265,9 @@ updateConfig()
 					updateConfig();
 					content = 'done';
 					break;
+				case 'getBranches':
+					content = getBranches(params[0]);
+					break;
 				case 'getStatus':
 					//console.log(params)
 					content = updateRepoStatus(params[0],true);//.success(function(){return repoStatuses[params[0]];});
@@ -230,7 +281,10 @@ updateConfig()
 					content = readFile('public/'+action);
 					break;
 				case 'branchInfos':
-					content = checkBranchStatus(params[0],params[1],false);
+					content = checkBranchStatus(params[0],params[1],'%feature',false)
+						.success(function(res){
+							return res==='' ? 'All commits appeares to be merged' : res;
+						});
 				default:
 					if( action.match(/^(|index(?:\.html)?|(?:basic-compat|stpl)\.js)$/) ){
 						( action ==='' || req.url==='index' ) &&  (action = '/index.html');

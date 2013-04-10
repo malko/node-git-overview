@@ -123,9 +123,14 @@ i.icon{
 				{{>projectName}}<div class="detail">Error: {{error}}</div>
 		</script>
 		<script type="text/stpl" rel="projectStatusOk">
-				{{>projectName}}<dl>{{#merges}}<dt><i class="icon-random"></i> merge {{>commiter}} at {{at|time2ISO}}</dt><dd class="branches">{{branches|listBranch}}</dd>{{/merges}}</dl>{{#merges.branches:test}}{{name}}{{/merges.branches}}
+				{{>projectName}}
+				<br/><div class="branches"><h3><i class="icon-random"></i> Upstream Branches</h3><ul>{{#branches}}{{>branchItem}}{{/branches}}</ul></div>
+				<div class="merged"><h3><i class="icon-random"></i> Feature Merged Branches</h3><dl>{{#merges}}<dt><i class="icon-random"></i> merge {{>commiter}} at {{at|time2ISO}}</dt><dd class="branches">{{branches|listBranch}}</dd>{{/merges}}</dl></div>
 		</script>
 		<script type="text/stpl" rel="commiter">by <img src="{{gravatar}}" alt="{{mail}}" class="gravatar"/>{{by}}</script>
+		<script type="text/stpl" rel="branchItem">
+			<li>{{name}} <span class="prod-status-{{prodStatus.length?}}"></span> <span class="feature-status-{{featureStatus.length?}}"></span></li>
+		</script>
 </head>
 <body>
 <div id="activity"> Loading... <i class="icon-spin icon-spinner"></i></div>

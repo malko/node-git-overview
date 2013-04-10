@@ -8,7 +8,7 @@
 *            - 2012-12-27 - add [in]equality filters + upperCase,lowerCase,ucFirst
 *                         - better context management
 *                         - add support for partial inclusion
-*            - 2012-12-   - now if/ifnot  both support ending tags with or whithout filters includes so {{param|empty?}}{{?param|empty}} is no equivalent to {{param|empty?}}{{?param}}
+*            - 2012-12-   - now if/ifnot  both support ending tags with or whithout filters includes so {{param|empty?}}{{?param|empty}} is now equivalent to {{param|empty?}}{{?param}}
 */
 (function(exports){
 	/*global global,exports*/
@@ -114,7 +114,7 @@
 		return str
 			.replace(/\{\{\s*#([^\{\s:]+?)(?::([^:\{\}]+))?\}\}([\s\S]*?)\{\{\/\1\}\}/g,function(m,param,concat,str){ // each elements #param ending /param
 				var res = [],data = getDataKey(datas,param,context),nContext = (context?context+'.':'')+param,i;
-                //~ console.log('each',param,concat,str,context,nContext,datas);
+				//~ console.log('each',param,concat,str,context,nContext,datas);
 				if(! data ){ return '';}
 				for( i in data ){
 					data.hasOwnProperty(i) && res.push(render(str,datas,nContext+'.'+i));
