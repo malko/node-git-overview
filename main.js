@@ -4,7 +4,7 @@ var child_process = require('child_process')
 	, gravatar = require('gravatar')
 	, http = require('http')
 	, D = require('./D.js')
-	, DEBUG_MODE = true
+	, DEBUG_MODE = false
 	, log = function(){
 		if( typeof(DEBUG_MODE) !== 'undefined' && DEBUG_MODE ){
 			return console.log.apply(console,arguments);
@@ -173,7 +173,7 @@ function updateRepoStatus(repoName,remoteUpdateFirst){
 			repoStatuses[repoName] = {name:repoName,label:repoConfig[repoName].label,updateTime:(new Date()).getTime(),error:err.toString()};
 		})
 		.success(function(){
-			getBranches(repoName,false);
+			return getBranches(repoName,false);
 		})
 		.then(function(){ return repoStatuses[repoName];})
 	;
