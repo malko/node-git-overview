@@ -132,8 +132,8 @@ i.icon{
 <h1>Testing status</h1>
 <ul id="projects"></ul>
 <div id="dialogbox"><i class="icon-remove"></i><div></div></div>
-<!--button id="refreshStatuses">refresh Statuses</button-->
-<!--button id="reloadConfig">Reload config</button-->
+<button id="refreshStatuses">refresh Statuses</button>
+<button id="reloadConfig">Reload config</button>
 <script type="text/javascript">
 	//-- date/time manipulations
 	function getTime(date){
@@ -155,17 +155,17 @@ i.icon{
 		var msPerYear = msPerDay * 365;
 		var elapsed = current - previous;
 		if (elapsed < msPerMinute) {
-				return Math.round(elapsed/1000) + ' sec.';
+			return Math.round(elapsed/1000) + ' sec.';
 		} else if (elapsed < msPerHour) {
-				return Math.round(elapsed/msPerMinute) + ' min.';
+			return Math.round(elapsed/msPerMinute) + ' min.';
 		} else if (elapsed < msPerDay ) {
-				return Math.round(elapsed/msPerHour ) + ' hours';
+			return Math.round(elapsed/msPerHour ) + ' hours';
 		}else if (elapsed < msPerMonth) {
-				return '~' + Math.round(elapsed/msPerDay) + ' days';
+			return '~' + Math.round(elapsed/msPerDay) + ' days';
 		} else if (elapsed < msPerYear) {
-				return '~' + Math.round(elapsed/msPerMonth) + ' months';
+			return '~' + Math.round(elapsed/msPerMonth) + ' months';
 		} else {
-				return '~' + Math.round(elapsed/msPerYear ) + ' years';
+			return '~' + Math.round(elapsed/msPerYear ) + ' years';
 		}
 	}
 	function time2ISO(timeStamp,d){
@@ -269,57 +269,61 @@ i.icon{
 		});
 		li.find('.updateTime .relative').html(relativeTime(repoStatuses[repoName].updateTime));
 	}
-		// get time delta to add for future time calculations
-		api.serverTime().success(function(timeStamp){ timeDelta= (new Date()).getTime()-timeStamp })
-		var repoStatuses = {},dialogbox=$('#dialogbox'); // local cache of repoStatuses
-		$(function(){
-			 refreshStatuses();
-				$('#projects')
-						.on('click','li, span.title, span.title *, .actions .expander',function(e){
-								var li = $(this),opened;
-								li.is('li') || (li=li.closest('li'));
-								li.toggleClass('open');
-								opened = li.hasClass('open');
-								$('.expander',li)
-									.toggleClass('icon-chevron-up',opened)
-									.toggleClass('icon-chevron-down',!opened)
-								;
-						})
-						.on('click','.actions .updateTime',function(){
-								var repoName = $(this).closest('li').attr('id');
-								api.updateStatus(repoName)
-									.success(function(status){
-										repoStatuses[repoName] = status;
-										refreshStatusDisplay(repoName);
-									})
-									.rethrow()
-								;
-						})
-						.on('click','.branch',function(){
-								var b = $(this)
-									,li=b.closest('li')
-									,bname=b.html()
-									,repo=li.prop('id')
-								;
-								api.getBranchInfos(repo,bname)
-									.success(function(infos){
-										openDialog('<h2>'+repo+':'+bname+'</h2><ul><li>'+infos.replace(/(^\s+|\s+$)/g,'').replace(/^\+ (\S+) (.*)$/gm,'$2<br /><small>$1</small>').replace(/\n/g,'</li><li>')+'</li></ul>');
-									})
-									.rethrow();
-						})
+	// get time delta to add for future time calculations
+	api.serverTime().success(function(timeStamp){ timeDelta= (new Date()).getTime()-timeStamp })
+	var repoStatuses = {},dialogbox=$('#dialogbox'); // local cache of repoStatuses
+	$(function(){
+		refreshStatuses();
+		$('#projects')
+			.on('click','li, span.title, span.title *, .actions .expander',function(e){
+				var li = $(this),opened;
+				li.is('li') || (li=li.closest('li'));
+				li.toggleClass('open');
+				opened = li.hasClass('open');
+				$('.expander',li)
+					.toggleClass('icon-chevron-up',opened)
+					.toggleClass('icon-chevron-down',!opened)
 				;
-				$('#reloadConfig').on('click',function(){
-						api.updateConfig()
-								.then(reload)
-								.rethrow();
-				});
-				$('#refreshStatuses').on('click',function(){
-						refreshStatuses(true).success(reload);
-				});
-				dialogbox.find('i').on('click',closeDialog);
-				// refresh only freshness time
-				setInterval(function(){ setFreshNess()},30000);
+				return false;
+			})
+			.on('click','.actions .updateTime, .actions .updateTime *',function(){
+				var repoName = $(this).closest('li').attr('id');
+				api.updateStatus(repoName)
+					.success(function(status){
+						repoStatuses[repoName] = status;
+						refreshStatusDisplay(repoName);
+					})
+					.rethrow()
+				;
+				return false;
+			})
+			.on('click','.branch',function(){
+				var b = $(this)
+					,li=b.closest('li')
+					,bname=b.html()
+					,repo=li.prop('id')
+				;
+				api.getBranchInfos(repo,bname)
+					.success(function(infos){
+						openDialog('<h2>'+repo+':'+bname+'</h2><ul><li>'+infos.replace(/(^\s+|\s+$)/g,'').replace(/^\+ (\S+) (.*)$/gm,'$2<br /><small>$1</small>').replace(/\n/g,'</li><li>')+'</li></ul>');
+					})
+					.rethrow();
+				return false;
+			})
+		;
+		$('#reloadConfig').on('click',function(){
+			api.updateConfig()
+				.then(reload)
+				.rethrow();
+			return false;
 		});
+		$('#refreshStatuses').on('click',function(){
+			refreshStatuses(true).success(reload);
+		});
+		dialogbox.find('i').on('click',closeDialog);
+		// refresh only freshness time
+		setInterval(function(){ setFreshNess()},30000);
+	});
 </script>
 </body>
 </html>

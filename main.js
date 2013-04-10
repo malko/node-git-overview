@@ -267,7 +267,7 @@ updateConfig()
 									//- res.setHeader('Expires',expDate.toUTCString());
 								//- }
 							});
-							res.writeHeader(200);
+							res.writeHead(200);
 							res.write(body);
 							res.end();
 							//~ log(action + ' response END 200');
@@ -291,7 +291,7 @@ updateConfig()
 					//~ log(action + ' response END 500');
 				})
 			;
-		}).listen( process.argv[2] || 8000, '10.0.1.59');
+		}).listen( process.argv[3] || 8000, process.argv[2] || '127.0.0.1' );
 		//~ console.log('running',process.argv[2] || 8000);
 	})
 	.rethrow()
