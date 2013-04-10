@@ -14,7 +14,6 @@ ul li.error{color:red;}
 ul li.error .detail{display:none;}
 ul .open dl, ul .open.error .detail{display:block;}
 img{ vertical-align: middle;}
-dl{display:none;}
 dt{margin-top:.5em;background:#f5f5f5;border-radius:2px;padding:0.2em;border:solid silver 1px;}
 img.gravatar{box-shadow:1px 1px 2px #000;border-radius:2px;margin:0 .4em;vertical-align:middle;}
 dd{margin:0 1em;background:#f0f0f0;padding:.5em;border-bottom-right-radius:5px;border-bottom-left-radius:5px;box-shadow:0px 1px 4px #888;}
@@ -68,9 +67,8 @@ i.icon{
 	position:fixed;
 	background: #fff;
 	top:-500px;
-	left:50%;
-	width:400px;
-	margin:auto -200px;
+	left:20%;
+	width:60%;
 	border:solid #555 1px;
 	box-shadow:2px 2px 15px #333;
 	border-radius:6px;
@@ -95,6 +93,19 @@ i.icon{
 	line-height:20px;
 }
 #dialogbox > div{ margin:0; overflow:auto; max-height: 350px; }
+#overlay{display:none;width:100%;background:#333;height:100%;position:fixed;opacity:.7;top:0;left:0;}
+
+.open div.branches{vertical-align:top;display:inline-block;width:31%;margin:0 1em;}
+.open div.branches span[class*='-status-']{vertical-align:middle;display:inline-block;height:1.2em;background:#fbb;color:#933;border-radius:3px;font-size:.8em;padding:.2em;}
+.open div.branches span[class*='-status-']:hover{cursor:pointer;}
+.open div.branches span[class*='-status-']:after{font-family:FontAwesome;content:"\f024";display:inline-block;vertical-align:top;line-height:1.2em;text-align:center;position:relative;}
+.open div.branches span[class$='-status-0']{background:#bfb;color:#393;}
+.open div.branches span[class$='-status-0']:after{content:"\f023";}
+.open div.branches span[class^=prod]:before{content:"prod ";}
+.open div.branches span[class^=feature]:before{content:"feature ";}
+.open div.branches li{border:none;box-shadow:none;padding:.2em;margin:0;}
+.open div.merged{vertical-align:top;display:inline-block;width:64%;margin:0 1em;}
+div.merged, div.branches{display:none;}
 		</style>
 		<link type="text/css" rel="stylesheet" href="webfonts/fontawesome.css" />
 		<script src="basic-compat.js"></script>
@@ -125,20 +136,21 @@ i.icon{
 		<script type="text/stpl" rel="projectStatusOk">
 				{{>projectName}}
 				<br/><div class="branches"><h3><i class="icon-random"></i> Upstream Branches</h3><ul>{{#branches}}{{>branchItem}}{{/branches}}</ul></div>
-				<div class="merged"><h3><i class="icon-random"></i> Feature Merged Branches</h3><dl>{{#merges}}<dt><i class="icon-random"></i> merge {{>commiter}} at {{at|time2ISO}}</dt><dd class="branches">{{branches|listBranch}}</dd>{{/merges}}</dl></div>
+				<div class="merged"><h3><i class="icon-random"></i> Feature Merged Branches not yet in prod</h3><dl>{{#merges}}<dt><i class="icon-random"></i> merge {{>commiter}} at {{at|time2ISO}}</dt><dd class="branches">{{branches|listBranch}}</dd>{{/merges}}</dl></div>
 		</script>
 		<script type="text/stpl" rel="commiter">by <img src="{{gravatar}}" alt="{{mail}}" class="gravatar"/>{{by}}</script>
 		<script type="text/stpl" rel="branchItem">
-			<li>{{name}} <span class="prod-status-{{prodStatus.length?}}"></span> <span class="feature-status-{{featureStatus.length?}}"></span></li>
+			<li class="branch" rel="{{name}}"><span class="prod-status-{{prodStatus.length}}"></span> <span class="feature-status-{{featureStatus.length}}"></span> {{name}}</li>
 		</script>
 </head>
 <body>
 <div id="activity"> Loading... <i class="icon-spin icon-spinner"></i></div>
 <h1>Testing status</h1>
 <ul id="projects"></ul>
+<div id="overlay"></div>
 <div id="dialogbox"><i class="icon-remove"></i><div></div></div>
-<button id="refreshStatuses">refresh Statuses</button>
-<button id="reloadConfig">Reload config</button>
+<!--button id="refreshStatuses">refresh Statuses</button>
+<button id="reloadConfig">Reload config</button-->
 <script type="text/javascript">
 	//-- date/time manipulations
 	function getTime(date){
@@ -219,7 +231,7 @@ i.icon{
 		return d.toString();
 	});
 	//encapsulate status refresh to sort the results
-	function reload(){ window.location.relaod();}
+	function reload(){ window.location.reload();}
 	function refreshStatuses(refresh){
 		return api.getStatuses(refresh)
 			.success(function(statuses){
@@ -237,8 +249,8 @@ i.icon{
 	// display methods
 	function startLoading(){ $('body').addClass('loading');};
 	function stopLoading(){ $('body').removeClass('loading');};
-	function openDialog(content){ dialogbox.find('>div').html(content); dialogbox.addClass('opened'); }
-	function closeDialog(content){ dialogbox.removeClass('opened'); dialogbox.find('>div').html(''); }
+	function openDialog(content){ overlay.show();dialogbox.find('>div').html(content); dialogbox.addClass('opened'); }
+	function closeDialog(content){ overlay.hide();dialogbox.removeClass('opened'); dialogbox.find('>div').html(''); }
 	function refreshStatusesDisplay(){ $('#projects').html('').stpl('projectStatus', {statuses:repoStatuses}); setFreshNess(); }
 	function refreshStatusDisplay(repoName){
 		var status=repoStatuses[repoName],li=$('li#'+repoName);
@@ -276,7 +288,7 @@ i.icon{
 	}
 	// get time delta to add for future time calculations
 	api.serverTime().success(function(timeStamp){ timeDelta= (new Date()).getTime()-timeStamp })
-	var repoStatuses = {},dialogbox=$('#dialogbox'); // local cache of repoStatuses
+	var repoStatuses = {},dialogbox=$('#dialogbox'),overlay=$('#overlay'); // local cache of repoStatuses
 	$(function(){
 		refreshStatuses();
 		$('#projects')
@@ -302,17 +314,45 @@ i.icon{
 				;
 				return false;
 			})
-			.on('click','.branch',function(){
-				var b = $(this)
-					,li=b.closest('li')
-					,bname=b.html()
-					,repo=li.prop('id')
+			//- .on('click','span.branch',function(){
+				//- var b = $(this)
+					//- ,li=b.closest('li')
+					//- ,bname=b.html()
+					//- ,repo=li.prop('id')
+				//- ;
+				//- api.getBranchInfos(repo,bname)
+					//- .success(function(infos){
+						//- openDialog('<h2>'+repo+':'+bname+'</h2><ul><li>'+infos.replace(/(^\s+|\s+$)/g,'').replace(/^\+ (\S+) (.*)$/gm,'$2<br /><small>$1</small>').replace(/\n/g,'</li><li>')+'</li></ul>');
+					//- })
+					//- .rethrow();
+				//- return false;
+			//- })
+			.on('click','li.branch span[class*="-status-"]',function(){
+				var	el = $(this)
+					,li=el.closest('li')
+					,bname=li.attr('rel')
+					,repo=$(li[0].parentNode).closest("li").prop('id')
+					,against
 				;
-				api.getBranchInfos(repo,bname)
-					.success(function(infos){
-						openDialog('<h2>'+repo+':'+bname+'</h2><ul><li>'+infos.replace(/(^\s+|\s+$)/g,'').replace(/^\+ (\S+) (.*)$/gm,'$2<br /><small>$1</small>').replace(/\n/g,'</li><li>')+'</li></ul>');
-					})
-					.rethrow();
+				el.attr('class').replace(/\b(prod|feature)-status/,function(m,a){ against=a;});
+				// look for the good branch
+				$.each(repoStatuses[repo].branches,function(k,v){
+					if( v.name === bname ){
+						var content;
+						if( ! v[against+'Status'].length ){
+							content = 'All commits appeared to be merged in '+against+' branch at last update time.'
+						}else{
+							content = v[against+'Status'].join('<br />')
+								/*.replace(/(^\s+|\s+$)/g,'')
+								.replace(/^\+ (\S+) (.*)$/gm,'$2<br /><small>$1</small>')
+								.replace(/\n/g,'</li><li>')*/
+							;
+						}
+						openDialog('<h2>'+repo+':'+bname+' vs '+against+'</h2><ul><li>'+content+'</li></ul>');
+						return false;
+					}
+				})
+
 				return false;
 			})
 		;
@@ -326,6 +366,7 @@ i.icon{
 			refreshStatuses(true).success(reload);
 		});
 		dialogbox.find('i').on('click',closeDialog);
+		overlay.on('click',closeDialog);
 		// refresh only freshness time
 		setInterval(function(){ setFreshNess()},30000);
 	});
