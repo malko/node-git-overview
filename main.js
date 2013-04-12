@@ -250,6 +250,9 @@ updateConfig()
 				//~ case 'gravatar':
 					//~ content = D.promisify(params[0] ? gravatar.url(params[0], {s: '64'}, false) : null);
 					//~ break;
+				case 'favicon.ico':
+					content = D.rejected(410);
+					break;
 				case 'D.js':
 					content = readCachedFile('./D.js');
 					break;
