@@ -1,10 +1,12 @@
 /*jshint forin:true, noarg:true, noempty:true, eqeqeq:true, bitwise:true, strict:true, undef:true, unused:true, curly:true, indent:2, maxerr:50, laxcomma:true, expr:true, white:false, expr:true, latedef:true*/
-/*global exports*/
+/*global window, module, process*/
 /**
 * attempt of a simple defer/promise library for mobile development
 * @author Jonathan Gotti for agence-modedemploi.com
 * @since 2012-10
 * @changelog
+*           - 2013-04-03 - bug correction in latests additions
+*           - 2013-03-26 - add fullfilled and rejected methods
 *           - 2013-03-21 - browser/node compatible
 *                        - new method nodeCapsule
 *                        - simpler promixify with full api support
@@ -15,21 +17,21 @@
 */
 (function(){
 	"use strict";
+	var nextTick;
+	if( (typeof process !== 'undefined') && process.nextTick ){
+		nextTick = process.nextTick;
+	}else if( typeof MessageChannel !== "undefined" ){
+		var ntickChannel = new MessageChannel(),queue=[];
+		ntickChannel.port1.onmessage = function(){ queue.length && (queue.shift())(); };
+		nextTick = function(cb){
+			queue.push(cb);
+			ntickChannel.port2.postMessage(0);
+		};
+	}else{
+		nextTick = function(cb){ setTimeout(cb,0); };
+	}
 
-var nextTick;
-if( (typeof process !== 'undefined') && process.nextTick ){
-	nextTick = process.nextTick;
-}else if( typeof MessageChannel !== "undefined" ){
-	var ntickChannel = new MessageChannel(),queue=[];
-	ntickChannel.port1.onmessage = function(){ queue.length && (queue.shift())(); };
-	nextTick = function(cb){
-		queue.push(cb);
-		ntickChannel.port2.postMessage(0);
-	};
-}else{
-	nextTick = function(cb){ setTimeout(cb,0); };
-}
-function rethrow(e){ nextTick(function(){ throw e;}); }
+	function rethrow(e){ nextTick(function(){ throw e;}); }
 
 	var defer = function (alwaysAsync){
 		alwaysAsync || (alwaysAsync = defer.alwaysAsync);
@@ -60,11 +62,10 @@ function rethrow(e){ nextTick(function(){ throw e;}); }
 				,error:function(failed){ return this.then(null,failed); }
 				,apply:function(fulfilled,failed){ return this.then(function(a){ return (typeof fulfilled==='function')?fulfilled.apply(null,a):fulfilled;},failed || null); }
 				,rethrow:function(failed){ return this.then(null,failed ? function(err){ failed(err); throw err;} : rethrow); }
-				,isPending:function(){
-					return status === 0 ? true:false;
-				}
+				,isPending:function(){ return status === 0 ? true:false;	}
 				,getStatus:function(){ return status;}
-			};
+			}
+		;
 		promise.toSource = promise.toString = promise.valueOf = function(){return value === undefined ? this : value; };
 		function execCallback(cb){
 			cb && cb.call(null,value);
@@ -81,31 +82,33 @@ function rethrow(e){ nextTick(function(){ throw e;}); }
 		}
 		function resolve(val){
 			if( status ){
-				return;
+				return this;
 			}
 			if(val && val.then){ // managing a promise
 				var valStatus = val.getStatus();
 				if(! valStatus){
 					val.then(function(r){try{resolve(r);}catch(e){reject(e);}},reject);
-					return;
+					return this;
 				}
 				val.valueOf && (val = val.valueOf());
 				if( !~valStatus ){
 					reject(val);
-					return;
+					return this;
 				}
 			}
 			value = val;
 			status=1;
 			alwaysAsync?nextTick(execCallbacks):execCallbacks();
+			return this;
 		}
 		function reject(Err){
 			if( status !== 0){
-				return;
+				return this;
 			}
 			try{ throw(Err); }catch(e){ value = e; }
 			status = -1;
 			alwaysAsync?nextTick(execCallbacks):execCallbacks();
+			return this;
 		}
 		return {
 			promise:promise
@@ -125,12 +128,10 @@ function rethrow(e){ nextTick(function(){ throw e;}); }
 		setTimeout(function(){ try{ d.resolve(fn.apply(null)); }catch(e){ d.reject(e); }  },delay||0);
 		return d.promise;
 	};
-	//-- if given value is not a promise return a fullfilled promise resolved to given value 
+	//-- if given value is not a promise return a fullfilled promise resolved to given value
 	defer.promisify = function(promise){
 		if(promise && promise.then){ return promise;}
-		var d = defer();
-		d.resolve(promise);
-		return d.promise;
+		return defer.resolved(promise).promise;
 	};
 	defer.nextTick = nextTick;
 	//-- return a promise for all given promises / values
@@ -172,7 +173,7 @@ function rethrow(e){ nextTick(function(){ throw e;}); }
 	defer.alwaysAsync=false; // setting this will change default behaviour. use it only if necessary as asynchronicity will force some delay between your promise resolutions and is not always what you want.
 
 	defer.nodeCapsule=function(subject,fn){
-		if( typeof subject === 'function' ){
+		if( !fn ){
 			fn=subject; subject=void(0);
 		}
 		return function(){
@@ -183,8 +184,10 @@ function rethrow(e){ nextTick(function(){ throw e;}); }
 			});
 			fn.apply(subject,args);
 			return d.promise;
-		}
+		};
 	};
+	defer.resolved = defer.fullfilled = function(value){ return defer(true).resolve(value).promise; };
+	defer.rejected = function(reason){ return defer(true).reject(reason).promise; };
 
 	(typeof window !== 'undefined') ? ( window.D = defer) : ( module.exports = defer);
 })();

@@ -4,7 +4,7 @@ var child_process = require('child_process')
 	, gravatar = require('gravatar')
 	, http = require('http')
 	, D = require('./D.js')
-	, DEBUG_MODE = true
+	, DEBUG_MODE = false
 	, log = function(){
 		if( typeof(DEBUG_MODE) !== 'undefined' && DEBUG_MODE ){
 			return console.log.apply(console,arguments);
@@ -32,7 +32,7 @@ var exec = D.nodeCapsule(child_process.exec)
 /**
 * exec a command on the given repo
 * @param string repoName
-* @param string cmd will replace placeHolders %prod %testing %upstream by their corresponding config value
+* @param string cmd will replace placeHolders %prod %feature %upstream by their corresponding config value
 * @param bool remoteUpdateFirst
 * @return a promise
 */
@@ -47,11 +47,11 @@ function repoExec(repoName,cmd,remoteUpdateFirst){
 	var cmdOpts = {cwd:conf.path}
 		,statusPromise
 	;
-	cmd = cmd.replace(/%(prod|testing|upstream)/g,function(m,key){
+	cmd = cmd.replace(/%(prod|feature|upstream)/g,function(m,key){
 		return conf[key];
 	});
 	if( remoteUpdateFirst ){
-		statusPromise=exec('git remote update',cmdOpts).then(function(){ return exec(cmd,cmdOpts);});
+		statusPromise=exec('git remote update --prune',cmdOpts).then(function(){ return exec(cmd,cmdOpts);});
 	}else{
 		statusPromise=exec(cmd,cmdOpts);
 	}
@@ -59,11 +59,11 @@ function repoExec(repoName,cmd,remoteUpdateFirst){
 		return statusPromise
 			.apply(
 				function(stdout,stderr){
-					console.log('[repoExec:'+repoName+']',cmd,stdout,stderr);
+					log('[repoExec:'+repoName+']',cmd,'\n'+stdout,stderr);
 					return [stdout,stderr];
 				}
 				,function(Err){
-					console.log('[repoExec:'+repoName+' ERROR]',Err,cmd);
+					log('[repoExec:'+repoName+' ERROR]',Err,cmd);
 					throw Err;
 				}
 			)
@@ -97,7 +97,7 @@ function updateConfig(){
 	readFile('./repositories-config.json',{encoding:'utf8'})
 		.then(function(data){ var tmp = JSON.parse(data.replace(/\/\*[\s\S]*?\*\/|\/\/.*/g,'')); repoConfig = tmp; d.resolve(true);})
 		.rethrow(function(err){d.reject(err);log(err);})
-		.then(function(){console.log('LOG',arguments)})
+		//.then(function(){console.log('LOG',arguments)})
 	;
 	return d.promise;
 }
@@ -110,35 +110,35 @@ function updateConfig(){
 */
 function parseBranches(str,repoConfig){
 	var res=[]
-		,exp=new RegExp("(?:Merge(?: remotes?)? branch(?:es)?|,|and)\\s+?'([^']+)'\\s*(?=,|and |into "+repoConfig.testing+")",'g')
+		,exp=new RegExp("(?:Merge(?: remotes?)? branch(?:es)?|,|and)\\s+?'([^']+)'\\s*(?=,|and |into "+repoConfig.feature+")",'g')
 		,originExp=new RegExp("^"+repoConfig.upstream+"/")
-		,excludeExp=new RegExp("^.*branch '"+repoConfig.testing+"' of.*$",'mg')
+		,excludeExp=new RegExp("^.*branch '"+repoConfig.feature+"' of.*$",'mg')
 	;
 	str
 		.replace(excludeExp,function(m){ res.push({name:'<b style="color:red">'+m+'</b>'});})
 		.replace(exp, function(m,branch){ res.push({name:branch.replace(originExp,'')});})
 	;
-	//~ log('\nPARSEBRANCHES:\n',str,exp,res,'\n');
 	return res;
 }
 /**
 * check for a branch if all commits are properly applieds or not
 * @param string repoName
 * @param string branchName
+* @param string againstBranch (may be %feature or %prod)
 * @param bool remoteUpdateFirst
 * @return promise of result
 */
-function checkBranchStatus(repoName,branch,remoteUpdateFirst){
-	var cmd = 'git branch -r | grep %upstream/'+branch+' && git cherry -v %upstream/%testing %upstream/'+branch;
+function checkBranchStatus(repoName,branch,againstBranch,remoteUpdateFirst){
+	var cmd = 'git branch -r | grep "%upstream/\\('+branch+'\\|'+againstBranch+'\\)" > /dev/null && git cherry --abbrev -v %upstream/'+againstBranch+' %upstream/'+branch;
 	return repoExec(repoName,cmd,remoteUpdateFirst)
 		.apply(function(stdout,stderr){
 			if( stdout.match(/^\+/m) ){
-				return stdout.replace(/^[^\+].*\n/gm,'');
+				return stdout.replace(/^[^\+].*\n/gm,'').replace(/^\s+|\s+$/g,'');
 			}
-			return "nothing to report";
+			return '';
 		})
 		.error(function(Err){
-			console.log('Error ',cmd,cmdOpts, Err)
+			log('Error ',cmd,cmdOpts, Err);
 		})
 	;
 }
@@ -149,15 +149,12 @@ function checkBranchStatus(repoName,branch,remoteUpdateFirst){
 * @return promise of object repoStatus
 */
 function updateRepoStatus(repoName,remoteUpdateFirst){
-	var cmd ='git log --merges %upstream/%prod..%upstream/%testing --pretty="%cn#%ce#%ct#%s"' // | grep "into %testing"';
-	//- console.log(cmd);
+	var cmd ='git log --merges %upstream/%prod..%upstream/%feature --pretty="%cn#%ce#%ct#%s"' // | grep "into %feature"';
 	return repoExec(repoName,cmd,remoteUpdateFirst)
 		.apply(function(stdout,stderr){
 			// initialize repoStatus[repoName]
-			repoStatuses[repoName] = {name:repoName,label:repoConfig[repoName].label,updateTime:(new Date()).getTime(),merges:[]};
-			//~ log('\nSTART '+repoName+'\n',stdout,repoStatuses[repoName],'\n---------------------------\n');
+			repoStatuses[repoName] = {name:repoName,label:repoConfig[repoName].label,updateTime:(new Date()).getTime(),merges:[],branches:[]};
 			stdout.replace(/^([^#]+)#([^#]+)#([^#]+)#([^\n]+)/mg,function(m,by,mail,date,branches){
-				//log('FEEDING '+repoName+'\n with:'+stdout+'\n',branches,'\n');
 				repoStatuses[repoName].merges.push({
 					by:by
 					,mail:mail
@@ -170,6 +167,9 @@ function updateRepoStatus(repoName,remoteUpdateFirst){
 		})
 		.error(function(err){
 			repoStatuses[repoName] = {name:repoName,label:repoConfig[repoName].label,updateTime:(new Date()).getTime(),error:err.toString()};
+		})
+		.success(function(){
+			return getBranches(repoName,false);
 		})
 		.then(function(){ return repoStatuses[repoName];})
 	;
@@ -189,9 +189,53 @@ log('updating')
 	return D.all(promises);
 }
 
+/**
+* return list of branch for given project
+* @param repoName
+*/
+function getBranches(repoName,remoteUpdateFirst){
+	if(! repoConfig[repoName]){
+		return D.rejected('Invalid repoName');
+	}
+	var rejectBranchExp = new RegExp(repoConfig[repoName].prod+'|'+repoConfig[repoName].feature+'|HEAD\s+->');
+	return repoExec(repoName,'git branch -r',remoteUpdateFirst)
+		.apply(function(stdout,stderr){
+			repoStatuses[repoName].branches = [];
+			if( stderr ){
+				return D.rejected(stderr);
+			}
+			var promises = [];
+			stdout.replace(new RegExp('^\\s*'+repoConfig[repoName].upstream+'/(.*)$','mg'),function(m,branch){
+				if( branch.match(rejectBranchExp) ){
+					return;
+				}
+				var branchDef = {
+					name:branch
+					,featureStatus:[]
+					,prodStatus:[]
+				};
+				promises.push(
+					D.all( // get unintegrated commits
+						checkBranchStatus(repoName,branch,'%feature')
+							.success(function(commits){commits && (branchDef.featureStatus = commits.split('\n'));})
+						,checkBranchStatus(repoName,branch,'%prod')
+							.success(function(commits){commits && (branchDef.prodStatus = commits.split('\n'));})
+					)
+					.success(function(){ // append branchDef status to repoStatuses when filled
+						return repoStatuses[repoName].branches.push(branchDef);
+					})
+				);
+			});
+			return D.all(promises);
+		})
+		.success(function(){
+			return repoStatuses[repoName].branches;
+		})
+	;
+}
 // starting the server
 updateConfig()
-	.then(function(){ updateRepoStatuses(true) })
+	.then(function(){ updateRepoStatuses(false) })
 	.then(function(){
 		log('create server',repoConfig)
 		http.createServer(function (req, res) {
@@ -210,17 +254,17 @@ updateConfig()
 					content = readCachedFile('./D.js');
 					break;
 				case 'getStatuses':
-					//console.log('GETSTATUSES',params,(params[0] === 'reload'));
 					content = (params[0] === 'reload') ? updateRepoStatuses(true).success(function(){ return repoStatuses;}) : repoStatuses;
 					break;
 				case 'updateConfig':
 					updateConfig();
 					content = 'done';
 					break;
+				case 'getBranches':
+					content = getBranches(params[0]);
+					break;
 				case 'getStatus':
-					//console.log(params)
 					content = updateRepoStatus(params[0],true);//.success(function(){return repoStatuses[params[0]];});
-					content.then('status return;',log,log)
 					break;
 				case 'serverTime':
 					content = (new Date()).getTime()+'';
@@ -230,7 +274,10 @@ updateConfig()
 					content = readFile('public/'+action);
 					break;
 				case 'branchInfos':
-					content = checkBranchStatus(params[0],params[1],false);
+					content = checkBranchStatus(params[0],params[1],'%feature',false)
+						.success(function(res){
+							return res==='' ? 'All commits appeares to be merged' : res;
+						});
 				default:
 					if( action.match(/^(|index(?:\.html)?|(?:basic-compat|stpl)\.js)$/) ){
 						( action ==='' || req.url==='index' ) &&  (action = '/index.html');
@@ -248,7 +295,7 @@ updateConfig()
 			content
 				.then(
 					function(body){
-						console.log('response',action,params,typeof body,body instanceof Buffer);
+						//console.log('response',action,params,typeof body,body instanceof Buffer);
 						if( ! body ){
 							throw new Error(404);
 							return;
@@ -260,27 +307,25 @@ updateConfig()
 								(ext==='js') && (ctype='application/javascript');
 								(ext==='html'||ext==='htm') && (ctype='text/html');
 								(ext==='manifest') && (ctype='text/cache-manifest');
+								(ext==='woff') && (ctype='application/x-font-woff');
 									res.setHeader("Content-Type",ctype);
-								//- if( ext.match(/^(css|js|manifest|woff|html?)$/)){
-									//- var expDate = new Date();
-									//- expDate.setTime(expDate.getTime()+600000);
-									//- res.setHeader('Expires',expDate.toUTCString());
-								//- }
+								if( ext.match(/^(css|js|manifest|woff|html?)$/)){
+									var expDate = new Date();
+									expDate.setTime(expDate.getTime()+600000);
+									res.setHeader('Expires',expDate.toUTCString());
+								}
 							});
 							res.writeHead(200);
 							res.write(body);
 							res.end();
-							//~ log(action + ' response END 200');
 						}else{
 							res.writeHead(200, {'Content-Type': 'application/json'});
 							res.end(JSON.stringify(body));
-							//~ log(action + ' response END 200json');
 						}
 					}
 					,function(Err){
 						res.writeHead(404, {'Content-Type': 'text/html'});
 						res.end('<h1>404</h1> Page unknown\n<br />'+Err);
-						//~ log(action + ' response END 404');
 					}
 				)
 				.error(function(err){
@@ -288,12 +333,9 @@ updateConfig()
 					res.writeHead(typeof err === 'number' ? err : 500, {"Content-Type": "text/plain"});
 					res.write((typeof err !== 'number' ? err : 'Internal Server Error' ) + "\n");
 					res.end();
-					//~ log(action + ' response END 500');
 				})
 			;
 		}).listen( process.argv[3] || 8000, process.argv[2] || '127.0.0.1' );
-		//~ console.log('running',process.argv[2] || 8000);
 	})
 	.rethrow()
 ;
-return ;
