@@ -128,12 +128,10 @@
 		setTimeout(function(){ try{ d.resolve(fn.apply(null)); }catch(e){ d.reject(e); }  },delay||0);
 		return d.promise;
 	};
-	//-- if given value is not a promise return a fullfilled promise resolved to given value 
+	//-- if given value is not a promise return a fullfilled promise resolved to given value
 	defer.promisify = function(promise){
 		if(promise && promise.then){ return promise;}
-		var d = defer();
-		d.resolve(promise);
-		return d.promise;
+		return defer.resolved(promise).promise;
 	};
 	defer.nextTick = nextTick;
 	//-- return a promise for all given promises / values
