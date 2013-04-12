@@ -51,7 +51,7 @@ function repoExec(repoName,cmd,remoteUpdateFirst){
 		return conf[key];
 	});
 	if( remoteUpdateFirst ){
-		statusPromise=exec('git remote update',cmdOpts).then(function(){ return exec(cmd,cmdOpts);});
+		statusPromise=exec('git remote update --prune',cmdOpts).then(function(){ return exec(cmd,cmdOpts);});
 	}else{
 		statusPromise=exec(cmd,cmdOpts);
 	}
@@ -59,11 +59,11 @@ function repoExec(repoName,cmd,remoteUpdateFirst){
 		return statusPromise
 			.apply(
 				function(stdout,stderr){
-					console.log('[repoExec:'+repoName+']',cmd,'\n'+stdout,stderr);
+					log('[repoExec:'+repoName+']',cmd,'\n'+stdout,stderr);
 					return [stdout,stderr];
 				}
 				,function(Err){
-					console.log('[repoExec:'+repoName+' ERROR]',Err,cmd);
+					log('[repoExec:'+repoName+' ERROR]',Err,cmd);
 					throw Err;
 				}
 			)
@@ -97,7 +97,7 @@ function updateConfig(){
 	readFile('./repositories-config.json',{encoding:'utf8'})
 		.then(function(data){ var tmp = JSON.parse(data.replace(/\/\*[\s\S]*?\*\/|\/\/.*/g,'')); repoConfig = tmp; d.resolve(true);})
 		.rethrow(function(err){d.reject(err);log(err);})
-		.then(function(){console.log('LOG',arguments)})
+		//.then(function(){console.log('LOG',arguments)})
 	;
 	return d.promise;
 }
@@ -118,7 +118,6 @@ function parseBranches(str,repoConfig){
 		.replace(excludeExp,function(m){ res.push({name:'<b style="color:red">'+m+'</b>'});})
 		.replace(exp, function(m,branch){ res.push({name:branch.replace(originExp,'')});})
 	;
-	//~ log('\nPARSEBRANCHES:\n',str,exp,res,'\n');
 	return res;
 }
 /**
@@ -139,7 +138,7 @@ function checkBranchStatus(repoName,branch,againstBranch,remoteUpdateFirst){
 			return '';
 		})
 		.error(function(Err){
-			console.log('Error ',cmd,cmdOpts, Err);
+			log('Error ',cmd,cmdOpts, Err);
 		})
 	;
 }
@@ -151,14 +150,11 @@ function checkBranchStatus(repoName,branch,againstBranch,remoteUpdateFirst){
 */
 function updateRepoStatus(repoName,remoteUpdateFirst){
 	var cmd ='git log --merges %upstream/%prod..%upstream/%feature --pretty="%cn#%ce#%ct#%s"' // | grep "into %feature"';
-	//- console.log(cmd);
 	return repoExec(repoName,cmd,remoteUpdateFirst)
 		.apply(function(stdout,stderr){
 			// initialize repoStatus[repoName]
 			repoStatuses[repoName] = {name:repoName,label:repoConfig[repoName].label,updateTime:(new Date()).getTime(),merges:[],branches:[]};
-			//~ log('\nSTART '+repoName+'\n',stdout,repoStatuses[repoName],'\n---------------------------\n');
 			stdout.replace(/^([^#]+)#([^#]+)#([^#]+)#([^\n]+)/mg,function(m,by,mail,date,branches){
-				//log('FEEDING '+repoName+'\n with:'+stdout+'\n',branches,'\n');
 				repoStatuses[repoName].merges.push({
 					by:by
 					,mail:mail
@@ -226,7 +222,7 @@ function getBranches(repoName,remoteUpdateFirst){
 							.success(function(commits){commits && (branchDef.prodStatus = commits.split('\n'));})
 					)
 					.success(function(){ // append branchDef status to repoStatuses when filled
-						repoStatuses[repoName].branches.push(branchDef);
+						return repoStatuses[repoName].branches.push(branchDef);
 					})
 				);
 			});
@@ -258,7 +254,6 @@ updateConfig()
 					content = readCachedFile('./D.js');
 					break;
 				case 'getStatuses':
-					//console.log('GETSTATUSES',params,(params[0] === 'reload'));
 					content = (params[0] === 'reload') ? updateRepoStatuses(true).success(function(){ return repoStatuses;}) : repoStatuses;
 					break;
 				case 'updateConfig':
@@ -269,9 +264,7 @@ updateConfig()
 					content = getBranches(params[0]);
 					break;
 				case 'getStatus':
-					//console.log(params)
 					content = updateRepoStatus(params[0],true);//.success(function(){return repoStatuses[params[0]];});
-					content.then('status return;',log,log)
 					break;
 				case 'serverTime':
 					content = (new Date()).getTime()+'';
@@ -302,7 +295,7 @@ updateConfig()
 			content
 				.then(
 					function(body){
-						console.log('response',action,params,typeof body,body instanceof Buffer);
+						//console.log('response',action,params,typeof body,body instanceof Buffer);
 						if( ! body ){
 							throw new Error(404);
 							return;
@@ -314,27 +307,25 @@ updateConfig()
 								(ext==='js') && (ctype='application/javascript');
 								(ext==='html'||ext==='htm') && (ctype='text/html');
 								(ext==='manifest') && (ctype='text/cache-manifest');
+								(ext==='woff') && (ctype='application/x-font-woff');
 									res.setHeader("Content-Type",ctype);
-								//- if( ext.match(/^(css|js|manifest|woff|html?)$/)){
-									//- var expDate = new Date();
-									//- expDate.setTime(expDate.getTime()+600000);
-									//- res.setHeader('Expires',expDate.toUTCString());
-								//- }
+								if( ext.match(/^(css|js|manifest|woff|html?)$/)){
+									var expDate = new Date();
+									expDate.setTime(expDate.getTime()+600000);
+									res.setHeader('Expires',expDate.toUTCString());
+								}
 							});
 							res.writeHead(200);
 							res.write(body);
 							res.end();
-							//~ log(action + ' response END 200');
 						}else{
 							res.writeHead(200, {'Content-Type': 'application/json'});
 							res.end(JSON.stringify(body));
-							//~ log(action + ' response END 200json');
 						}
 					}
 					,function(Err){
 						res.writeHead(404, {'Content-Type': 'text/html'});
 						res.end('<h1>404</h1> Page unknown\n<br />'+Err);
-						//~ log(action + ' response END 404');
 					}
 				)
 				.error(function(err){
@@ -342,12 +333,9 @@ updateConfig()
 					res.writeHead(typeof err === 'number' ? err : 500, {"Content-Type": "text/plain"});
 					res.write((typeof err !== 'number' ? err : 'Internal Server Error' ) + "\n");
 					res.end();
-					//~ log(action + ' response END 500');
 				})
 			;
 		}).listen( process.argv[3] || 8000, process.argv[2] || '127.0.0.1' );
-		//~ console.log('running',process.argv[2] || 8000);
 	})
 	.rethrow()
 ;
-return ;
