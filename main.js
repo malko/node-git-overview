@@ -138,7 +138,7 @@ function checkBranchStatus(repoName,branch,againstBranch,remoteUpdateFirst){
 			return '';
 		})
 		.error(function(Err){
-			log('Error ',cmd,cmdOpts, Err);
+			log('Error ', Err);
 		})
 	;
 }
@@ -312,11 +312,15 @@ updateConfig()
 								(ext==='manifest') && (ctype='text/cache-manifest');
 								(ext==='woff') && (ctype='application/x-font-woff');
 									res.setHeader("Content-Type",ctype);
+								var expDate = new Date();
 								if( ext.match(/^(css|js|manifest|woff|html?)$/)){
-									var expDate = new Date();
 									expDate.setTime(expDate.getTime()+600000);
-									res.setHeader('Expires',expDate.toUTCString());
+								}else if( ext.match(/^json$/) ){
+									expDate.setTime(expDate.getTime()-6000);
+								}else{
+									expDate.setTime(expDate.getTime()+60000);
 								}
+								res.setHeader('Expires',expDate.toUTCString());
 							});
 							res.writeHead(200);
 							res.write(body);
