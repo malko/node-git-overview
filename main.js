@@ -7,7 +7,7 @@ var child_process = require('child_process')
 	, DEBUG_MODE = false
 	, log = function(){
 		if( typeof(DEBUG_MODE) !== 'undefined' && DEBUG_MODE ){
-			return console.log.apply(console,arguments);
+			console.log.apply(console,arguments);
 		}
 	}
 ;
@@ -197,7 +197,7 @@ function getBranches(repoName,remoteUpdateFirst){
 	if(! repoConfig[repoName]){
 		return D.rejected('Invalid repoName');
 	}
-	var rejectBranchExp = new RegExp(repoConfig[repoName].prod+'|'+repoConfig[repoName].feature+'|HEAD\s+->');
+	var rejectBranchExp = new RegExp(repoConfig[repoName].prod+'|'+repoConfig[repoName].feature+'|HEAD\\s+->');
 	return repoExec(repoName,'git branch -r',remoteUpdateFirst)
 		.apply(function(stdout,stderr){
 			repoStatuses[repoName].branches = [];
@@ -281,6 +281,7 @@ updateConfig()
 						.success(function(res){
 							return res==='' ? 'All commits appeares to be merged' : res;
 						});
+					break;
 				default:
 					if( action.match(/^(|index(?:\.html)?|(?:basic-compat|stpl)\.js)$/) ){
 						( action ==='' || req.url==='index' ) &&  (action = '/index.html');
@@ -301,7 +302,6 @@ updateConfig()
 						//console.log('response',action,params,typeof body,body instanceof Buffer);
 						if( ! body ){
 							throw new Error(404);
-							return;
 						}
 						if( typeof body === 'string' || (body instanceof Buffer) ){
 							action.replace(/\.(js|css|html|htm)$/,function(m,ext){
