@@ -1,0 +1,28 @@
+{
+  "name": "node-git-overview",
+  "version": "0.1.0",
+  "description": "Quickly get an overview of your git repositories status from your browser",
+  "main": "main.js",
+  "dependencies": {
+    "gravatar": "1.0.x",
+		"d.js": "0.2.x"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/malko/node-git-overview.git"
+  },
+  "keywords": [
+    "git",
+    "utility"
+  ],
+  "author": "Jonathan Gotti",
+  "license": "MIT",
+  "gitHead": "3900123d45ed3317f30a49d5698f81605421ae47",
+  "bugs": {
+    "url": "https://github.com/malko/node-git-overview/issues"
+  }
+}

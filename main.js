@@ -1,9 +1,9 @@
-
 var child_process = require('child_process')
 	, fs = require('fs')
 	, gravatar = require('gravatar')
 	, http = require('http')
-	, D = require('./D.js')
+	, D = require('d.js')
+	, DPath = require.resolve('d.js').replace(/js$/,'min.js')
 	, DEBUG_MODE = false
 	, log = function(){
 		if( typeof(DEBUG_MODE) !== 'undefined' && DEBUG_MODE ){
@@ -254,7 +254,7 @@ updateConfig()
 					content = D.rejected(410);
 					break;
 				case 'D.js':
-					content = readCachedFile('./D.js');
+					content = readCachedFile(DPath);
 					break;
 				case 'getStatuses':
 					content = (params[0] === 'reload') ? updateRepoStatuses(true).success(function(){ return repoStatuses;}) : repoStatuses;
