@@ -24,7 +24,7 @@ Installation
 Configuration
 -------------
 Here is a sample *repositories-config.json* create one at the root or your working copy and add as many repo as you wish
-```
+```javascript
 {
 	/* key will be used as DOM ids so avoid using anything else than [a-zA-z_0-9] for naming*/
 	'internalRepoName': {
